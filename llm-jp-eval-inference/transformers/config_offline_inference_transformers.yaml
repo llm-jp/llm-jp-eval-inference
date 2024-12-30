@@ -1,7 +1,7 @@
 run_name: null  # This value will be applied to both offline_inference.run_name and wandb.run_name with the highest priority.
 
 offline_inference:
-  prompt_json_path: ["../../dataset/1.4.1/evaluation/test/prompts/*.eval-prompt.json"]
+  prompt_json_path: ["../../../dataset/1.4.1/evaluation/test/prompts/*.eval-prompt.json"]
   output_base_dir: "./outputs"
   run_name: null  # If null, the top level run_name or the default run_name determined by model configuration will be used. Do not specify both this value and top level run_name at the same time. The final output path is {output_base_dir}/{run_name}/
 

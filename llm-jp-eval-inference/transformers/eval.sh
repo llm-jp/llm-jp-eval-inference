@@ -23,8 +23,6 @@ OUTPUT_DIR=`egrep -r -h "^output_dir=" $LOG | head -n 1 | sed "s/output_dir=//"`
 rm $LOG
 deactivate
 
-cd ../..
-source venv/bin/activate
-python scripts/evaluate_llm.py offline_dir=$OUTPUT_DIR
-deactivate
+cd ../../../
+poetry run python scripts/evaluate_llm.py offline_dir="${OUTPUT_DIR}"
 cd -
