@@ -7,7 +7,7 @@ from typing import Any, Dict
 import hydra
 import torch
 import transformers
-from generator import GeneratorBase
+from llm_jp_eval_inference.generator import GeneratorBase
 from omegaconf import DictConfig
 from peft import PeftModel
 from transformers import PreTrainedTokenizerBase, pipeline
