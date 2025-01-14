@@ -3,10 +3,14 @@ name = "llm-jp-eval-inference"
 version = "0.0.1"
 description = "Inference Module for llm-jp-eval"
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.13"
 dependencies = [
     "pydantic>=2.10.5",
+    "llm-jp-eval",
 ]
+
+[tool.uv.sources]
+llm-jp-eval = { git = "https://github.com/e-mon/llm-jp-eval", branch = "refactor/feature/configs" }
 
 [build-system]
 requires = ["hatchling"]
@@ -20,5 +24,31 @@ dev-dependencies = [
     "ruff>=0.9.1",
 ]
 
-[tool.uv.workspace]
-members = ["inference-modules/transformers"]
+[tool.black]
+line-length = 120
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.isort]
+line_length = 120
+py_version = 39
+profile = "black"
+src_paths = ["src"]
+
+[tool.flake8]
+# E203 is not PEP8 compliant and black insert space around slice (https://black.readthedocs.io/en/stable/faq.html#why-are-flake8-s-e203-and-w503-violated)
+# E501: Line too long. Disable it to allow long lines of comments and print lines which black allows.
+# W503: line break before binary operator (https://www.flake8rules.com/rules/W503.html)
+ignore = ["E203", "E501", "W503"]
+max-line-length = 120
+
+[tool.mypy]
+python_version = "3.10"
+exclude = ["scripts", "docs", "test", "inference-modules"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    # note the use of single quote below to denote "raw" strings in TOML
+    'ignore::UserWarning',
+    'ignore::DeprecationWarning'
+]

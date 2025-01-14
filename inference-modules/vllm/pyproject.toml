@@ -5,12 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10, <3.13"
 dependencies = [
-    "bitsandbytes>=0.45.0",
     "llm-jp-eval-inference",
-    "peft>=0.14.0",
     "torch>=2.4.0",
-    "transformers>=4.44.2",
-    "wandb>=0.17.7,<0.18.0",
+    "transformers>=4.45.1,<4.46.0",
+    "vllm==0.6.2",
+    "vllm-flash-attn"
 ]
 
 [tool.uv.sources]
