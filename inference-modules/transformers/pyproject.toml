@@ -1,0 +1,17 @@
+[project]
+name = "inference-modules-transformers"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10, <3.13"
+dependencies = [
+    "bitsandbytes>=0.45.0",
+    "llm-jp-eval-inference",
+    "peft>=0.14.0",
+    "torch>=2.4.0",
+    "transformers>=4.44.2",
+    "wandb>=0.17.7,<0.18.0",
+]
+
+[tool.uv.sources]
+llm-jp-eval-inference = { path = "../../", editable = true }
