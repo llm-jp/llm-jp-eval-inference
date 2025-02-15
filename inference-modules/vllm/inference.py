@@ -1,17 +1,19 @@
 import copy
 import logging
+
 from typing import Any, Dict
 
 import torch
 import transformers
 import vllm
 import vllm.sampling_params
-from llm_jp_eval.cli import setup_cli
+
 from schemas import InferenceConfig
 from transformers import PreTrainedTokenizerBase
 
+from llm_jp_eval.cli import setup_cli
+from llm_jp_eval.schemas import DatasetProfile
 from llm_jp_eval_inference.generator import GeneratorBase
-from llm_jp_eval_inference.schemas import DatasetProfile
 
 logger = logging.getLogger(__name__)
 transformers.logging.set_verbosity_info()
@@ -53,7 +55,7 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         self.run_options = []
         if cfg.model.enable_prefix_caching:
             self.run_options.append("apc")
-        if "gpu_memory_utilization" in cfg.model and cfg.model.gpu_memory_utilization != 0.9:
+        if cfg.model.gpu_memory_utilization is not None:
             self.run_options.append("gmu" + f"{cfg.model.gpu_memory_utilization:.3f}"[1:])
 
     def load_tokenizer(self):

@@ -27,8 +27,8 @@ class InferenceConfig(BaseInferenceConfig):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # transformers specific configurations
-    model: ModelConfig = Field(default_factory=ModelConfig)
-    tokenizer: TokenizerConfig = Field(default_factory=TokenizerConfig)
+    model: ModelConfig
+    tokenizer: TokenizerConfig
     generation_config: GenerationConfig = Field(default_factory=GenerationConfig)
     pipeline_kwargs: dict = Field(default_factory=dict)
 

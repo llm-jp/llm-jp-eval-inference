@@ -10,7 +10,6 @@ dependencies = [
     "peft>=0.14.0",
     "torch>=2.4.0",
     "transformers>=4.44.2",
-    "wandb>=0.17.7,<0.18.0",
 ]
 
 [tool.uv.sources]

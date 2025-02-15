@@ -8,9 +8,11 @@ dependencies = [
     "llm-jp-eval-inference",
     "torch>=2.4.0",
     "transformers>=4.45.1,<4.46.0",
-    "vllm==0.6.2",
-    "vllm-flash-attn"
+    "vllm==0.6.3",
+    "vllm-flash-attn",
 ]
 
+[tool.uv]
+no-binary-package = ["pyairports"]
 [tool.uv.sources]
 llm-jp-eval-inference = { path = "../../", editable = true }

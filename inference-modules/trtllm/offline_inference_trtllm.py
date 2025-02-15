@@ -3,12 +3,14 @@ import ast
 import copy
 import logging
 import os
+
 from typing import Any, Dict
 
 import hydra
 import tensorrt_llm
 import tensorrt_llm.profiler
 import torch
+
 from generator import GeneratorBase
 from omegaconf import DictConfig
 from tensorrt_llm.runtime import ModelRunnerCpp
@@ -67,9 +69,9 @@ class TRTLLMGenerator(GeneratorBase):
             if os.path.isdir(os.path.join(runner_kwargs.engine_dir, name))
         } == {"encoder", "decoder"}
         assert not is_enc_dec
-        assert supports_inflight_batching(
-            runner_kwargs.engine_dir
-        ), "The given engine does not support in-flight batching, fallback to python session"
+        assert supports_inflight_batching(runner_kwargs.engine_dir), (
+            "The given engine does not support in-flight batching, fallback to python session"
+        )
         if runner_kwargs.medusa_choices is not None:
             assert runner_kwargs.temperature == 1.0, "Medusa should use temperature == 1.0"
         self.runner_kwargs = runner_kwargs
@@ -100,7 +102,7 @@ class TRTLLMGenerator(GeneratorBase):
         else:
             self.bad_words_list = None
 
-    def load_model(self, dataset_profile: Dict[str, Dict[str, int]]):
+    def load_model(self, dataset_profiles: Dict[str, Dict[str, int]]):
         runner_kwargs = self.runner_kwargs
         args = dict(
             engine_dir=runner_kwargs.engine_dir,
@@ -119,7 +121,7 @@ class TRTLLMGenerator(GeneratorBase):
             enable_chunked_context=runner_kwargs.enable_chunked_context,
             multi_block_mode=runner_kwargs.multi_block_mode,
             enable_context_fmha_fp32_acc=runner_kwargs.enable_context_fmha_fp32_acc,
-            max_input_len=dataset_profile["(total)"]["max_input_len"],
+            max_input_len=dataset_profiles["(total)"]["max_input_len"],
         )
         if runner_kwargs.medusa_choices is not None:
             medusa_choices = ast.literal_eval(runner_kwargs.medusa_choices)
