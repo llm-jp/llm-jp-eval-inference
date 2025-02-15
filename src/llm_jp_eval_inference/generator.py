@@ -11,8 +11,9 @@ from typing import Any, Dict, Generic, List, Tuple, TypeVar
 
 import torch
 import wandb
+from llm_jp_eval.schemas import DatasetProfile, InferenceResultInfo
 
-from llm_jp_eval_inference.schemas import BaseInferenceConfig, DatasetProfile, InferenceResultInfo
+from llm_jp_eval_inference.schemas import BaseInferenceConfig
 from llm_jp_eval_inference.utility import set_seed
 
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +50,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
     def load_tokenizer(self):
         assert False, "not implemented"
 
-    def load_model(self, dataset_profile: Dict[str, DatasetProfile]):
+    def load_model(self, dataset_profiles: Dict[str, DatasetProfile]):
         assert False, "not implemented"
 
     def set_max_output_length(self, max_tokens: int):
@@ -120,7 +121,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
         total_max_output_len = 0
         total_max_seq_len = 0
         total_sum_seq_len = 0
-        dataset_profile: Dict[str, DatasetProfile] = dict()
+        dataset_profiles: Dict[str, DatasetProfile] = dict()
         for target_dataset, (
             target_data,
             prompt_tokens,
@@ -141,7 +142,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
             max_seq_len = max_input_len + max_output_len
             if total_max_seq_len < max_seq_len:
                 total_max_seq_len = max_seq_len
-            dataset_profile[target_dataset] = DatasetProfile(
+            dataset_profiles[target_dataset] = DatasetProfile(
                 num_prompt=num_prompt,
                 max_input_len=max_input_len,
                 sum_input_len=sum_input_len,
@@ -150,7 +151,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
                 sum_seq_len=sum_seq_len,
             )
 
-        dataset_profile["(total)"] = DatasetProfile(
+        dataset_profiles["(total)"] = DatasetProfile(
             num_prompt=total_num_prompt,
             max_input_len=total_max_input_len,
             sum_input_len=total_sum_input_len,
@@ -158,7 +159,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
             max_seq_len=total_max_seq_len,
             sum_seq_len=total_sum_seq_len,
         )
-        return dataset_profile
+        return dataset_profiles
 
     def execute(self) -> None:
         if self.is_master_process:
@@ -181,14 +182,14 @@ class GeneratorBase(Generic[InferenceConfigT]):
 
         if self.is_master_process:
             logger.info("inspecting dataset ...")
-        dataset_profile = self.inspect_dataset(tokenized_dataset)
+        dataset_profiles = self.inspect_dataset(tokenized_dataset)
         if self.is_master_process:
-            for target_dataset, profile in dataset_profile.items():
+            for target_dataset, profile in dataset_profiles.items():
                 logger.info(f"{target_dataset}: {profile}")
 
         if self.is_master_process:
             logger.info("loading model ...")
-        self.load_model(dataset_profile)
+        self.load_model(dataset_profiles)
         init = datetime.now()
         time_profile = {
             "(conv)": self.cfg.run.model_conversion_time,
@@ -201,7 +202,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
             prompt_tokens,
             prompt_lengths,
         ) in tokenized_dataset.items():
-            max_input_len = dataset_profile[target_dataset].max_input_len
+            max_input_len = dataset_profiles[target_dataset].max_input_len
             max_output_len = target_data["output_length"] + target_data["config"].get("output_length_delta", 0)
             if self.is_master_process:
                 logger.info(f"generating {target_dataset} ...")
@@ -240,7 +241,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
             logger.info(f"time_profile: {time_profile}")
         self.cfg.inference_result_info = InferenceResultInfo(
             dump_prompts_config=dump_prompts_config,
-            dataset_profiles=dataset_profile,
+            dataset_profiles=dataset_profiles,
             benchmark=benchmark,
             time_profile=time_profile,
         )

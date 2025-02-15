@@ -100,7 +100,7 @@ class TRTLLMGenerator(GeneratorBase):
         else:
             self.bad_words_list = None
 
-    def load_model(self, dataset_profile: Dict[str, Dict[str, int]]):
+    def load_model(self, dataset_profiles: Dict[str, Dict[str, int]]):
         runner_kwargs = self.runner_kwargs
         args = dict(
             engine_dir=runner_kwargs.engine_dir,
@@ -119,7 +119,7 @@ class TRTLLMGenerator(GeneratorBase):
             enable_chunked_context=runner_kwargs.enable_chunked_context,
             multi_block_mode=runner_kwargs.multi_block_mode,
             enable_context_fmha_fp32_acc=runner_kwargs.enable_context_fmha_fp32_acc,
-            max_input_len=dataset_profile["(total)"]["max_input_len"],
+            max_input_len=dataset_profiles["(total)"]["max_input_len"],
         )
         if runner_kwargs.medusa_choices is not None:
             medusa_choices = ast.literal_eval(runner_kwargs.medusa_choices)

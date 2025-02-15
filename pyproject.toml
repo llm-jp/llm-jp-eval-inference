@@ -7,10 +7,12 @@ requires-python = ">=3.10,<3.13"
 dependencies = [
     "pydantic>=2.10.5",
     "llm-jp-eval",
+    # istallation error occurs with 5.3.1
+    "lxml <= 5.3.0"
 ]
 
 [tool.uv.sources]
-llm-jp-eval = { git = "https://github.com/e-mon/llm-jp-eval", branch = "refactor/feature/configs" }
+llm-jp-eval = { git = "https://github.com/e-mon/llm-jp-eval", branch = "refactor/main" }
 
 [build-system]
 requires = ["hatchling"]
