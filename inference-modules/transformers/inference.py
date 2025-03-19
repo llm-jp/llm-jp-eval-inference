@@ -1,18 +1,20 @@
 import copy
 import json
 import logging
+
 from pathlib import Path
 from typing import Any, Dict
 
 import torch
 import transformers
-from llm_jp_eval.cli import setup_cli
+
 from peft import PeftModel
 from schemas import InferenceConfig
 from transformers import PreTrainedTokenizerBase, pipeline
 
+from llm_jp_eval.cli import setup_cli
+from llm_jp_eval.schemas import DatasetProfile
 from llm_jp_eval_inference.generator import GeneratorBase
-from llm_jp_eval_inference.schemas import DatasetProfile
 
 logger = logging.getLogger(__name__)
 transformers.logging.set_verbosity_info()
@@ -85,7 +87,7 @@ class TransformersGenerator(GeneratorBase[InferenceConfig]):
         with torch.inference_mode():
             results = copy.deepcopy(target_data)
             generated_texts = pipe(samples)  # TODO use token_ids instead of text
-            for sample, generated in zip(results["samples"], generated_texts):
+            for sample, generated in zip(results["samples"], generated_texts, strict=False):
                 sample["generated"] = generated[0]["generated_text"]
         return results
 

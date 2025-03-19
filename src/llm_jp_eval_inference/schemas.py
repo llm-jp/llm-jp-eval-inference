@@ -1,23 +1,8 @@
 from pathlib import Path
 
-from llm_jp_eval.schemas import BaseInferenceResultConfig
 from pydantic import BaseModel, Field
 
-
-class DatasetProfile(BaseModel):
-    num_prompt: int
-    max_input_len: int
-    sum_input_len: int
-    max_output_len: int
-    max_seq_len: int
-    sum_seq_len: int
-
-
-class InferenceResultInfo(BaseModel):
-    dump_prompts_config: dict
-    dataset_profiles: dict[str, DatasetProfile]
-    benchmark: dict
-    time_profile: dict
+from llm_jp_eval.schemas import BaseInferenceResultConfig, InferenceResultInfo
 
 
 # these values will be used only for logging and wandb (no effect for running environment)
@@ -32,7 +17,7 @@ class MetaInfo(BaseModel):
 
 # Inherit the interface for passing to llm-jp-eval
 class BaseInferenceConfig(BaseInferenceResultConfig):
-    run: MetaInfo = Field(default_factory=MetaInfo)
+    meta: MetaInfo = Field(default_factory=MetaInfo)
     inference_result_info: InferenceResultInfo | None = None
     tokenize_kwargs: dict = Field(
         {"add_special_tokens": True},

@@ -113,3 +113,6 @@ configs/config.yaml
 dataset/
 logs/
 offline/
+
+# outputs
+output/

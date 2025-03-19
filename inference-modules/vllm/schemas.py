@@ -11,7 +11,7 @@ class ModelConfig(BaseModel):
     model: str
     dtype: str = "bfloat16"
     trust_remote_code: bool = False
-    gpu_memory_utilization: float = 0.9
+    gpu_memory_utilization: float | None = None
     tensor_parallel_size: int = 1
     pipeline_parallel_size: int = 1
     max_model_len: int = 2048
@@ -56,6 +56,6 @@ class InferenceConfig(BaseInferenceConfig):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # transformers specific configurations
-    model: ModelConfig = Field(default_factory=ModelConfig)
-    tokenizer: TokenizerConfig = Field(default_factory=TokenizerConfig)
+    model: ModelConfig
+    tokenizer: TokenizerConfig
     generation_config: VLLMSamplingParams = Field(default_factory=VLLMSamplingParams)
