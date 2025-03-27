@@ -26,11 +26,11 @@ InferenceConfigT = TypeVar("InferenceConfigT", bound=BaseInferenceConfig)
 class GeneratorBase(Generic[InferenceConfigT]):
     def __init__(self, cfg: InferenceConfigT, generator_type: str, generator_module):
         self.cfg = cfg
-        self.lib_type = cfg.run.lib_type
+        self.lib_type = cfg.meta.lib_type
         if self.lib_type is None:
             module_version = GeneratorBase.get_module_version(generator_module, short=True)
             self.lib_type = f"{generator_type}{module_version}"
-        self.gpu_type = cfg.run.gpu_type
+        self.gpu_type = cfg.meta.gpu_type
         if self.gpu_type is None:
             if torch.cuda.is_available():
                 self.gpu_type = torch.cuda.get_device_name().replace("NVIDIA ", "")
@@ -38,7 +38,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
                 self.gpu_type = "MPS"
             else:
                 self.gpu_type = "CPU"
-        self.run_name_suffix = cfg.run.run_name_suffix
+        self.run_name_suffix = cfg.meta.run_name_suffix
         self.max_len = 0
         self.base_model_name = ""
         self.quantization = ""
@@ -193,7 +193,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
         self.load_model(dataset_profiles)
         init = datetime.now()
         time_profile = {
-            "(conv)": self.cfg.run.model_conversion_time,
+            "(conv)": self.cfg.meta.model_conversion_time,
             "(init)": (init - start).total_seconds(),
             "(infer)": None,
         }
@@ -283,7 +283,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
             self.cfg.run_name = self._get_default_run_name()
         run_name = cfg.run_name
 
-        if cfg.wandb.log and self.is_master_process:
+        if cfg.wandb.launch and self.is_master_process:
             wandb.login()
             wandb_run = wandb.init(
                 entity=cfg.wandb.entity,

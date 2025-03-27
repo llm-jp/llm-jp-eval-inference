@@ -1,0 +1,23 @@
+[project]
+name = "inference-modules-trtllm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10, <3.13"
+dependencies = [
+    "llm-jp-eval-inference",
+    "transformers>=4.44.2",
+    "cython<3.0.0",
+    # "tensorrt_llm",
+]
+
+[tool.uv.sources]
+llm-jp-eval-inference = { path = "../../", editable = true }
+tensorrt_llm = [
+    { index = "nvidia" }
+]
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+explicit = true
