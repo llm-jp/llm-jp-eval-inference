@@ -20,4 +20,3 @@ RUN sed -i -r "s/split=split,$/split=split, trust_remote_code=trust_remote_code,
 
 RUN cd /workspace/llm-jp-eval-inference/inference-modules/trtllm && \
     uv sync && pip install tensorrt_llm --extra-index-url https://pypi.nvidia.com
-

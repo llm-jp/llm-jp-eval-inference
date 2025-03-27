@@ -1,4 +1,3 @@
-import argparse
 import ast
 import copy
 import logging
@@ -6,14 +5,13 @@ import os
 
 from typing import Any, Dict
 
-import torch
-
 import tensorrt_llm
 import tensorrt_llm.profiler
-from tensorrt_llm.runtime import ModelRunnerCpp
-from utils import add_common_args, load_tokenizer, read_model_name, supports_inflight_batching
+import torch
 
 from schemas import InferenceConfig
+from tensorrt_llm.runtime import ModelRunnerCpp
+from utils import load_tokenizer, read_model_name, supports_inflight_batching
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
@@ -34,9 +32,7 @@ class TRTLLMGenerator(GeneratorBase[InferenceConfig]):
         self.is_master_process = tensorrt_llm.mpi_rank() == 0
         self.model_arch, self.model_version = read_model_name(cfg.runner.engine_dir)
         self.model_name = cfg.runner.engine_dir
-        self.base_model_name = (
-            (cfg.meta.base_model_name or cfg.runner.engine_dir).strip(" \t\r\n./").replace("/", "--")
-        )
+        self.base_model_name = (cfg.meta.base_model_name or cfg.runner.engine_dir).strip(" \t\r\n./").replace("/", "--")
         self.quantization = {
             "bfloat16": "bfloat16",
             "fp8": "fp8-W8A8",
@@ -58,7 +54,7 @@ class TRTLLMGenerator(GeneratorBase[InferenceConfig]):
         assert supports_inflight_batching(cfg.runner.engine_dir), (
             "The given engine does not support in-flight batching, fallback to python session"
         )
-        if hasattr(cfg.runner, 'medusa_choices'):
+        if hasattr(cfg.runner, "medusa_choices"):
             assert cfg.generation_config.temperature == 1.0, "Medusa should use temperature == 1.0"
 
         self.run_options = []

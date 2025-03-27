@@ -22,7 +22,7 @@ OUTPUT_DIR="scripts_tensorrt"
 # ディレクトリが存在しない場合のみ、ディレクトリ作成とファイルダウンロードを実行
 if [ ! -d "scripts_tensorrt" ]; then
     mkdir -p scripts_tensorrt
-    
+
     # 特定のコミットから直接ファイルをダウンロード
     wget -O scripts_tensorrt/utils.py ${BASE_URL}/examples/utils.py
     wget -O scripts_tensorrt/convert_checkpoint.py ${BASE_URL}/examples/llama/convert_checkpoint.py

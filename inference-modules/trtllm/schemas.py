@@ -1,12 +1,12 @@
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from llm_jp_eval_inference.schemas import BaseInferenceConfig
 
 
 class RunnerConfig(BaseModel):
-    model_config = ConfigDict(extra='allow')
+    model_config = ConfigDict(extra="allow")
     engine_dir: str
     tokenizer_dir: str
     enable_chunked_context: bool = True
@@ -38,6 +38,7 @@ class RunnerConfig(BaseModel):
     prompt_tasks: list[str] | None = None
     streaming: bool = False
 
+
 class GenerationConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     max_new_tokens: int = 256
@@ -55,6 +56,7 @@ class GenerationConfig(BaseModel):
 
     random_seed: int | None = None
     lora_uids: list[str] | None = None
+
 
 class TokenizerConfig(BaseModel):
     pretrained_model_name_or_path: str
