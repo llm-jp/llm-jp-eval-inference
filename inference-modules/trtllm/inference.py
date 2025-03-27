@@ -20,10 +20,15 @@ from llm_jp_eval_inference.generator import GeneratorBase
 logger = logging.getLogger(__name__)
 
 
-def main():
-    cfg = setup_cli(InferenceConfig)
+def inference(cfg: InferenceConfig):
     generator = TRTLLMGenerator(cfg)
     generator.main()
+
+
+def get_run_name(cfg: InferenceConfig):
+    generator = TRTLLMGenerator(cfg)
+    run_name = cfg.run_name or generator._get_default_run_name()
+    print(run_name)
 
 
 class TRTLLMGenerator(GeneratorBase[InferenceConfig]):
@@ -168,4 +173,10 @@ class TRTLLMGenerator(GeneratorBase[InferenceConfig]):
 
 
 if __name__ == "__main__":
-    main()
+    cfg = setup_cli(
+        InferenceConfig,
+        commands={
+            "inference": inference,
+            "get_run_name": get_run_name,
+        },
+    )

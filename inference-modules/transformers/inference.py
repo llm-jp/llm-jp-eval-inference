@@ -20,19 +20,24 @@ logger = logging.getLogger(__name__)
 transformers.logging.set_verbosity_info()
 
 
-def main():
-    cfg = setup_cli(InferenceConfig)
+def inference(cfg: InferenceConfig):
     generator = TransformersGenerator(cfg)
     generator.main()
+
+
+def get_run_name(cfg: InferenceConfig):
+    generator = TransformersGenerator(cfg)
+    run_name = cfg.run_name or generator._get_default_run_name()
+    print(run_name)
 
 
 class TransformersGenerator(GeneratorBase[InferenceConfig]):
     def __init__(self, cfg: InferenceConfig):
         super().__init__(cfg, "transformers", transformers)
         self.model_name = cfg.model.pretrained_model_name_or_path.strip(" \t\r\n./").replace("/", "--")
-        self.base_model_name = self.model_name if cfg.run.base_model_name is None else cfg.run.base_model_name
-        if cfg.run.quantization is not None:
-            self.quantization = cfg.run.quantization
+        self.base_model_name = self.model_name if cfg.meta.base_model_name is None else cfg.meta.base_model_name
+        if cfg.meta.quantization is not None:
+            self.quantization = cfg.meta.quantization
         elif cfg.model.load_in_4bit:
             self.quantization = "int4-BNB"
         elif cfg.model.load_in_8bit:
@@ -93,4 +98,10 @@ class TransformersGenerator(GeneratorBase[InferenceConfig]):
 
 
 if __name__ == "__main__":
-    main()
+    cfg = setup_cli(
+        InferenceConfig,
+        commands={
+            "inference": inference,
+            "get_run_name": get_run_name,
+        },
+    )

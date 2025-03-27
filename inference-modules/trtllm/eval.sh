@@ -13,7 +13,7 @@ LOG=logs/eval-`uuidgen`
 mkdir -p logs
 
 if [ $((TP * PP)) -eq 1 ]; then
-   HYDRA_FULL_ERROR=1 python3 inference.py \
+   HYDRA_FULL_ERROR=1 python3 inference inference.py \
     --runner.engine_dir=$ENGINE_DIR \
     --runner.tokenizer_dir=$TOKENIZER_DIR \
     --runner.tp=1 --runner.pp=1 --runner.max_seq_len=$MAX_SEQ_LEN \
@@ -25,7 +25,7 @@ else
     DEVICE_SPEC=""
   fi
   mpirun -n $((TP * PP)) --allow-run-as-root $DEVICE_SPEC \
-    python3 inference.py \
+    python3 inference inference.py \
     --runner.engine_dir=$ENGINE_DIR \
     --runner.tokenizer_dir=$TOKENIZER_DIR \
     --runner.tp=$TP --runner.pp=$PP --runner.max_seq_len=$MAX_SEQ_LEN \

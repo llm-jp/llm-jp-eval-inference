@@ -11,7 +11,7 @@ class ModelConfig(BaseModel):
     model: str
     dtype: str = "bfloat16"
     trust_remote_code: bool = False
-    gpu_memory_utilization: float | None = None
+    gpu_memory_utilization: float = 0.9
     tensor_parallel_size: int = 1
     pipeline_parallel_size: int = 1
     max_model_len: int = 2048
@@ -40,9 +40,6 @@ class VLLMSamplingParams(BaseModel):
     top_k: int = -1
     min_p: float = 0.0
     seed: Optional[int] = None
-    use_beam_search: bool = False
-    length_penalty: float = 1.0
-    early_stopping: Union[bool, str] = False
     stop: Optional[Union[str, List[str]]] = None
     stop_token_ids: Optional[List[int]] = None
     ignore_eos: bool = False
