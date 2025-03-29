@@ -3,7 +3,7 @@
 
 [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)を用いてプロンプトの推論結果を出力します。
 
-プロンプトのダンプ出力や評価の実行については[オフライン評価](../../README.md#オフライン評価)を参照してください。
+推論実行前の準備や評価の実行方法については [推論および評価実行方法](../../README.md#推論および評価実行方法) を参照してください。
 
 - TensorRT-LLM参考資料
   - https://nvidia.github.io/TensorRT-LLM/quick-start-guide.html
@@ -36,39 +36,8 @@ HOMEディレクトリ直下にllm-jp-evalがcloneされている前提で、次
 （llm-jp-evalの`requirements.txt`のインストールは不要です）
 
 ```bash
-cd ~/offline_inference/trtllm
-git clone https://github.com/NVIDIA/TensorRT-LLM.git -b rel
-cd TensorRT-LLM
-git checkout 28fb9aacaa5a05494635194a9cbb264da9a744bd
-cd ..
-ln -sf TensorRT-LLM/examples/utils.py .
-docker run -it --rm --ipc=host --gpus all --shm-size 64g \
-  -v $HOME:$HOME \
-  -w $HOME/llm-jp-eval/offline_inference/trtllm/ \
-  nvcr.io/nvidia/tritonserver:24.08-trtllm-python-py3
-
-# ゲストOS起動時に以下を毎回実行（docker commit等でイメージを保存するとtritonserverが正常に動作しない）
-apt update -y
-apt install -y uuid-runtime
-pip install -r requirements_trtllm.txt
-pip install -U transformers==4.44.2
-# docker内でwandbを動作させるためにloginとgitの設定が必要
-git config --global --add safe.directory `cd ../.. ; pwd`
-# Llama-3.1を動作させるためにはtransformersをupgradeする必要がある
-pip install -U transformers==4.44.2
-# モデルの量子化を行う場合
-pip install pyyaml==5.4.1 --no-build-isolation
-pip install -r requirements_trtllm_quantization.txt
-# 量子化時にtrust_remote_codeでエラーになる問題を回避するためのworkaround
-sed -i -r "s/split=split,$/split=split, trust_remote_code=trust_remote_code,/" /usr/local/lib/python3.10/dist-packages/tensorrt_llm/models/convert_utils.py
-# wandbを使用する場合は初期化を行う
-wandb login
-```
-
-
-```bash
-docker build -t llm-jp-trt-llm ../../ -f Dockerfile
-docker run -it --rm --ipc=host --gpus all --shm-size 64g \
+$ docker build -t llm-jp-trt-llm ../../ -f Dockerfile
+$ docker run -it --rm --ipc=host --gpus all --shm-size 64g \
   -v $(pwd)../../../../:/llm-jp-eval \
   -w /llm-jp-eval/llm-jp-eval-inference/inference-modules/trtllm/ \
   llm-jp-trt-llm
@@ -215,13 +184,13 @@ mpirun -n 2 --allow-run-as-root -x CUDA_VISIBLE_DEVICES=0,1 python3 offline_infe
 （推論結果の保存先ディレクトリは `$OUTPUT_BASE_DIR/$RUN_NAME/` となる）
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python3 offline_inference_trtllm.py \
-  -cn ./config_offline_inference_trtllm.yaml \
-  runner_kwargs.endinge_dir=llm-jp-3-13b.bfloat16_tp1_2k \
-  runner_kwargs.tokenizer_dir=llm-jp-3-13b \
-  run_name="$RUN_NAME" \
-  offline_inference.output_base_dir="$OUTPUT_BASE_DIR" \
-  prompt_json_path=['../../datasets/1.4.1/evaluation/dev/prompts/*.eval-prompt.json']
+$ CUDA_VISIBLE_DEVICES=0 uv run inference.py \
+  --config ./config_sample.yaml \
+  --runner.endinge_dir=llm-jp-3-13b.bfloat16_tp1_2k \
+  --runner.tokenizer_dir=llm-jp-3-13b \
+  --run_name="$RUN_NAME" \
+  --output_base_dir="$OUTPUT_BASE_DIR" \
+  --prompt_json_path=['../../../local_files/datasets/2.0.0/evaluation/path/to/prompts/*.eval-prompt.json']
 ```
 
 主要パラメータを指定して簡易に推論を実行する `eval.sh` の使用例。
@@ -237,7 +206,3 @@ CUDA_VISIBLE_DEVICES=0 python3 offline_inference_trtllm.py \
 ```bash
 $ CUDA_VISIBLE_DEVICES=0,1 ./eval.sh llm-jp-3-13b.bfloat16_tp1_2k llm-jp-3-13b 2 1 2048 enable run_name="13b-trtllm-test1"
 ```
-
-## 評価の実行
-
-オフライン推論結果を使用した評価は、llm-jp-evalのconfigで`offline_dir`属性を指定して [/scripts/evaluate_llm.py](/scripts/evaluate_llm.py) を実行してください。
