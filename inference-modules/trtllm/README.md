@@ -65,6 +65,15 @@ sed -i -r "s/split=split,$/split=split, trust_remote_code=trust_remote_code,/" /
 wandb login
 ```
 
+
+```bash
+docker build -t llm-jp-trt-llm ../../ -f Dockerfile
+docker run -it --rm --ipc=host --gpus all --shm-size 64g \
+  -v $(pwd)../../../../:/llm-jp-eval \
+  -w /llm-jp-eval/llm-jp-eval-inference/inference-modules/trtllm/ \
+  llm-jp-trt-llm
+```
+
 ## モデル変換・推論・評価の一括実行
 
 [build_and_eval.sh](./build_and_eval.sh)を使用して簡単にモデルを評価することができます。
@@ -72,7 +81,7 @@ wandb login
 （モデル変換・推論・評価の各ステップを個別に実行する方法については以降の章に詳細な説明があります）
 
 ```bash
-./build_and_eval.sh llm-jp/llm-jp-3-13b bfloat16 origin 1 1 2048 enable A100-SXM-40GB
+./build_and_eval.sh llm-jp/llm-jp-3-3.7b-instruct bfloat16 origin 1 1 2048 enable A100-SXM-40GB
 ```
 
 ## モデル変換
@@ -96,7 +105,7 @@ apt install git-lfs
 git lfs install
 
 MODEL_ORG=llm-jp
-MODEL_DIR=llm-jp-3-13b
+MODEL_DIR=llm-jp-3-3.7b-instruct
 git clone https://huggingface.co/${MODEL_ORG}/${MODEL_DIR}
 # TensorRT-LLMは古いLLaMA表記のモデル形式に対応していないため config.json の書き換えを行う
 cd ${MODEL_DIR} && cp config.json config.json.old && sed "s/LLaMAForCausalLM/LlamaForCausalLM/g" config.json.old > config.json && cd ..
@@ -117,7 +126,7 @@ MAX_SEQ_LEN=2048
 SETTINGS=${DTYPE}_tp${TP}_pp${PP}_$((MAX_SEQ_LEN / 1024))k
 CKPT_DIR=./${MODEL_DIR}.${SETTINGS}.ckpt
 ENGINE_DIR=./${MODEL_DIR}.${SETTINGS}
-python3 TensorRT-LLM/examples/llama/convert_checkpoint.py \
+python3 scripts_tensorrt/convert_checkpoint.py \
   --model_dir ${MODEL_DIR} --dtype ${DTYPE} \
   --tp_size ${TP} --pp_size ${PP} \
   --output_dir ${CKPT_DIR}
