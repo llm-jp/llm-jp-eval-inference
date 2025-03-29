@@ -273,7 +273,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
                 run_name_suffix,
             ]
             if _
-        )
+        ).replace(" ", "_")
 
     def main(self):
         cfg = self.cfg

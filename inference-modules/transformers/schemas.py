@@ -42,3 +42,17 @@ class InferenceConfig(BaseInferenceConfig):
     @field_serializer("generation_config")
     def serialize_generation_config(self, config: GenerationConfig) -> dict:
         return config.to_dict()
+
+    # NOTE: Batch sizeなどをそのまま渡す際に問題になるのでparse出来そうなものはparseする
+    @field_validator("pipeline_kwargs")
+    def parse_numbers_in_dict(cls, v):
+        for key, value in v.items():
+            if isinstance(value, str):
+                try:
+                    v[key] = int(value)
+                except ValueError:
+                    try:
+                        v[key] = float(value)
+                    except ValueError:
+                        pass
+        return v

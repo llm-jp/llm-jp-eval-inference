@@ -19,18 +19,23 @@ logger = logging.getLogger(__name__)
 transformers.logging.set_verbosity_info()
 
 
-def main():
-    cfg = setup_cli(InferenceConfig)
+def inference(cfg: InferenceConfig):
     generator = VLLMGenerator(cfg)
     generator.main()
+
+
+def get_run_name(cfg: InferenceConfig):
+    generator = VLLMGenerator(cfg)
+    run_name = cfg.run_name or generator._get_default_run_name()
+    print(run_name)
 
 
 class VLLMGenerator(GeneratorBase[InferenceConfig]):
     def __init__(self, cfg: InferenceConfig):
         super().__init__(cfg, "vllm", vllm)
         self.model_name = cfg.model.model
-        if cfg.run.base_model_name:
-            self.base_model_name = cfg.run.base_model_name
+        if cfg.meta.base_model_name:
+            self.base_model_name = cfg.meta.base_model_name
         else:
             model_name_replaced = self.model_name.strip(" \t\r\n./").replace("/", "--")
             for suffix, quantization in {
@@ -46,8 +51,8 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
             else:
                 self.base_model_name = model_name_replaced
                 self.quantization = cfg.model.dtype
-        if cfg.run.quantization:
-            self.quantization = cfg.run.quantization
+        if cfg.meta.quantization:
+            self.quantization = cfg.meta.quantization
         self.max_len = cfg.model.max_model_len
         self.tp = cfg.model.tensor_parallel_size
         self.pp = cfg.model.pipeline_parallel_size
@@ -91,4 +96,10 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
 
 
 if __name__ == "__main__":
-    main()
+    cfg = setup_cli(
+        InferenceConfig,
+        commands={
+            "inference": inference,
+            "get_run_name": get_run_name,
+        },
+    )
