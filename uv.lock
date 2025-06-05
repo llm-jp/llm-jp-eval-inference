@@ -752,6 +752,15 @@ wheels = [
 ]
 
 [[package]]
+name = "immutabledict"
+version = "4.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/c5/4240186fbabc58fba41bbe17c5f0cd37ffd4c0b85a5029ab104f946df175/immutabledict-4.2.1.tar.gz", hash = "sha256:d91017248981c72eb66c8ff9834e99c2f53562346f23e7f51e7a5ebcf66a3bcc", size = 6228, upload_time = "2024-11-17T13:25:21.555Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/56/25ca7b848164b7d93dbd5fc97dd7751700c93e324fe854afbeb562ee2f98/immutabledict-4.2.1-py3-none-any.whl", hash = "sha256:c56a26ced38c236f79e74af3ccce53772827cef5c3bce7cab33ff2060f756373", size = 4700, upload_time = "2024-11-17T13:25:19.52Z" },
+]
+
+[[package]]
 name = "ipadic"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -764,6 +773,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b8/21/1e2a441f74a653a144224d7d21afe8f4169e6c7c20bb13aec3a2dc3815e0/isort-6.0.1.tar.gz", hash = "sha256:1cb5df28dfbc742e490c5e41bad6da41b805b0a8be7bc93cd0fb2a8a890ac450", size = 821955, upload_time = "2025-02-26T21:13:16.955Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/11/114d0a5f4dabbdcedc1125dee0888514c3c3b16d3e9facad87ed96fad97c/isort-6.0.1-py3-none-any.whl", hash = "sha256:2dc5d7f65c9678d94c88dfc29161a320eec67328bc97aad576874cb4be1e9615", size = 94186, upload_time = "2025-02-26T21:13:14.911Z" },
+]
+
+[[package]]
+name = "ja-sentence-segmenter"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/73/8d/917bdefdaae77934c8b84293e6a40ee1609d28c49535d02c0efd55fe0748/ja_sentence_segmenter-0.0.2.tar.gz", hash = "sha256:caa373b504ff3f906688ac9cb9a761935a84e03c20d2a9741cfcb4f778859e35", size = 7701, upload_time = "2020-02-22T16:09:27.52Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/58/6268f9249100f2f269c04c379d0b1b6c2cd2e5c09ddba0bfa7d0173c0059/ja_sentence_segmenter-0.0.2-py3-none-any.whl", hash = "sha256:237d99e79f9fe0e858310c088d9fb7d74e765954769ae6473197a0bd5ace4edb", size = 8620, upload_time = "2020-02-22T16:09:25.906Z" },
+]
+
+[[package]]
+name = "janome"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/08/4e/dc2b1a89a4ffafbf9bf49c8e11f69e28ba8b3ef81d11afe6e9f96caee6cc/Janome-0.5.0.tar.gz", hash = "sha256:ce4a3ed7a4635c2f80139639327d5b1e0381858ad74a3c4a61e8cc83f820400e", size = 18829020, upload_time = "2023-07-01T10:53:09.161Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/7d/70f4069f4bbf0fca023e82a1fbbade6f5216365d4fe259fee1950723eca5/Janome-0.5.0-py2.py3-none-any.whl", hash = "sha256:d098670394a77881ce2f6b7d696c0ea5ff74c0c8cf74a8a882159ec82c0e6dc7", size = 19654103, upload_time = "2023-07-01T10:52:58.572Z" },
 ]
 
 [[package]]
@@ -1027,6 +1054,15 @@ wheels = [
 ]
 
 [[package]]
+name = "langdetect"
+version = "1.0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/72/a3add0e4eec4eb9e2569554f7c70f4a3c27712f40e3284d483e88094cc0e/langdetect-1.0.9.tar.gz", hash = "sha256:cbc1fef89f8d062739774bd51eda3da3274006b3661d199c2655f6b3f6d605a0", size = 981474, upload_time = "2021-05-07T07:54:13.562Z" }
+
+[[package]]
 name = "langsmith"
 version = "0.1.147"
 source = { registry = "https://pypi.org/simple" }
@@ -1118,17 +1154,21 @@ wheels = [
 [[package]]
 name = "llm-jp-eval"
 version = "2.0.0"
-source = { git = "https://github.com/llm-jp/llm-jp-eval?tag=v2.0.0-beta#99ceb49856fa20877200dc698c578aefa209d87c" }
+source = { git = "https://github.com/llm-jp/llm-jp-eval?tag=v2.0.0#3d68754eb95d16181d0778438a6759da931aca94" }
 dependencies = [
     { name = "accelerate" },
     { name = "bert-score" },
     { name = "datasets" },
     { name = "fastparquet" },
     { name = "fuzzywuzzy" },
+    { name = "immutabledict" },
+    { name = "ja-sentence-segmenter" },
+    { name = "janome" },
     { name = "langchain" },
     { name = "langchain-community" },
     { name = "langchain-huggingface" },
     { name = "langchain-openai" },
+    { name = "langdetect" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "pydantic-settings" },
@@ -1164,7 +1204,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "llm-jp-eval", git = "https://github.com/llm-jp/llm-jp-eval?tag=v2.0.0-beta" },
+    { name = "llm-jp-eval", git = "https://github.com/llm-jp/llm-jp-eval?tag=v2.0.0" },
     { name = "lxml", specifier = "<=5.3.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
 ]
