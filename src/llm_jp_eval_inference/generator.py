@@ -102,10 +102,26 @@ class GeneratorBase(Generic[InferenceConfigT]):
         return dataset, dump_prompts_config
 
     def tokenize_dataset(self, dataset: Dict[str, Dict[str, Any]]) -> Dict[str, Tuple[Dict[str, Any], list, list]]:
+        def _message(sample: dict[str, Any]) -> list[dict[str, str]]:
+            messages = []
+            if "system_prompt" in sample and sample["system_prompt"]:
+                messages.append({"role": "system", "content": sample["system_prompt"]})
+            messages.append({"role": "user", "content": sample["prompt"]})
+            return messages
+
         tokenized_dataset = {}
         for target_dataset, target_data in dataset.items():
-            samples = [sample["prompt"] for sample in target_data["samples"]]
-            prompt_tokens = self.tokenizer(samples, **self.cfg.tokenize_kwargs)["input_ids"]
+            if self.cfg.apply_chat_template and self.tokenizer.chat_template is not None:
+                prompt_tokens = [
+                    self.tokenizer.apply_chat_template(
+                        _message(sample), add_generation_prompt=True, **self.cfg.tokenize_kwargs
+                    )
+                    for sample in target_data["samples"]
+                ]
+            else:
+                samples = [sample["prompt"] for sample in target_data["samples"]]
+                prompt_tokens = self.tokenizer(samples, **self.cfg.tokenize_kwargs)["input_ids"]
+
             prompt_lengths = [len(_) for _ in prompt_tokens]
             tokenized_dataset[target_dataset] = (
                 target_data,
