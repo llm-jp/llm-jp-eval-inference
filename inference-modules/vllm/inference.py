@@ -107,8 +107,6 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
                         reasoning_content.lstrip() if reasoning_content else None
                     )
                     results["samples"][i]["generated"] = content.lstrip() if content else ""
-                    if content is None or content == "":
-                        print(outputs)
                 else:
                     results["samples"][i]["generated"] = output.outputs[0].text
         return results

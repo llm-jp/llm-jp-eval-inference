@@ -119,6 +119,10 @@ class GeneratorBase(Generic[InferenceConfigT]):
                     for sample in target_data["samples"]
                 ]
             else:
+                if self.cfg.apply_chat_template:
+                    logger.warning(
+                        "apply_chat_template is set, but tokenizer.chat_template is None. Falling back to default tokenization."
+                    )
                 samples = [sample["prompt"] for sample in target_data["samples"]]
                 prompt_tokens = self.tokenizer(samples, **self.cfg.tokenize_kwargs)["input_ids"]
 
