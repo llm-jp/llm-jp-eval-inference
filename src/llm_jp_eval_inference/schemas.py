@@ -23,6 +23,7 @@ class BaseInferenceConfig(BaseInferenceResultConfig):
         {"add_special_tokens": True},
         description="additional arguments for tokenizer.tokenize",
     )
+    apply_chat_template: bool = Field(False, description="apply chat template to the prompt")
 
     prompt_json_path: str | list[str] = Field(
         ["../../../dataset/1.4.1/evaluation/test/prompts/*.eval-prompt.json"],

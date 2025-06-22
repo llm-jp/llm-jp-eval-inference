@@ -10,6 +10,8 @@ import vllm.sampling_params
 
 from schemas import InferenceConfig
 from transformers import PreTrainedTokenizerBase
+from vllm.entrypoints.openai.protocol import ChatCompletionRequest
+from vllm.reasoning.abs_reasoning_parsers import ReasoningParserManager
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
@@ -75,6 +77,13 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
     def load_model(self, dataset_profile: Dict[str, DatasetProfile]):
         self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
         self.model.set_tokenizer(self.tokenizer)
+        if hasattr(self.cfg.model, "reasoning_parser"):
+            parser_class = ReasoningParserManager.get_reasoning_parser(self.cfg.model.reasoning_parser)
+            self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
+
+    def _parse_reasoning_content(self, model_output: str) -> tuple[str | None, str]:
+        # tuple[reasoning_content, content]
+        return self.reasoning_parser.extract_reasoning_content(model_output, request=ChatCompletionRequest(messages=[]))
 
     def generate(
         self,
@@ -85,13 +94,21 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         prompt_lengths: list,
     ) -> Dict[str, Any]:
         sampling_params = vllm.sampling_params.SamplingParams(**self.cfg.generation_config.model_dump())
-        if "max_tokens" not in self.cfg.generation_config:
+
+        if self.cfg.generation_config.max_tokens is None:
             sampling_params.max_tokens = max_output_len
         with torch.inference_mode():
             results = copy.deepcopy(target_data)
             outputs = self.model.generate(sampling_params=sampling_params, prompt_token_ids=prompt_tokens)
             for i, output in enumerate(outputs):
-                results["samples"][i]["generated"] = output.outputs[0].text
+                if hasattr(self.cfg.model, "reasoning_parser"):
+                    reasoning_content, content = self._parse_reasoning_content(output.outputs[0].text)
+                    results["samples"][i]["reasoning_content"] = (
+                        reasoning_content.lstrip() if reasoning_content else None
+                    )
+                    results["samples"][i]["generated"] = content.lstrip() if content else ""
+                else:
+                    results["samples"][i]["generated"] = output.outputs[0].text
         return results
 
 
