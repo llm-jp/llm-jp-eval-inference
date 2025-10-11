@@ -8,20 +8,11 @@ dependencies = [
     "llm-jp-eval-inference",
     "torch>=2.4.0",
     "transformers>=4.45.1",
-    "vllm==0.10.1+gptoss",
+    "vllm==0.11.0",
 ]
 
 [tool.uv]
 no-binary-package = ["pyairports"]
-extra-index-url = [
-    "https://wheels.vllm.ai/gpt-oss/",
-    "https://download.pytorch.org/whl/nightly/cu128"
-]
-index-strategy = "unsafe-best-match"
-prerelease = "allow"
-override-dependencies = [
-    "tenacity>=9.1.2",
-]
 
 [tool.uv.sources]
 llm-jp-eval-inference = { path = "../../", editable = true }
