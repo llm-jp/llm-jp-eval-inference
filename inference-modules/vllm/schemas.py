@@ -14,7 +14,7 @@ class ModelConfig(BaseModel):
     gpu_memory_utilization: float = 0.9
     tensor_parallel_size: int = 1
     pipeline_parallel_size: int = 1
-    max_model_len: int = 2048
+    max_model_len: int = 4096
     num_scheduler_steps: int = 8
     enable_prefix_caching: bool = True
 

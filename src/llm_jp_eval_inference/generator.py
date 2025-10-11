@@ -7,7 +7,6 @@ import subprocess
 import sys
 
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, Generic, List, Tuple, TypeVar
 
 import torch
@@ -184,7 +183,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
 
     def execute(self) -> None:
         if self.is_master_process:
-            output_dir = Path(f"./{self.cfg.output_base_dir}/{self.cfg.run_name}")
+            output_dir = self.cfg.output_base_dir / str(self.cfg.run_name)
             os.makedirs(output_dir, exist_ok=True)
             print(f"output_dir={output_dir.resolve()}")
 
