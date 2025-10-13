@@ -1,7 +1,15 @@
 import copy
 import logging
+import os
+import sys
 
 from typing import Any, Dict
+
+# Suppress vLLM logs before importing (for get_run_name command)
+if "get_run_name" in sys.argv:
+    os.environ["VLLM_LOGGING_LEVEL"] = "ERROR"
+    logging.basicConfig(level=logging.ERROR)
+    logging.getLogger().setLevel(logging.ERROR)
 
 import torch
 import transformers
@@ -18,7 +26,12 @@ from llm_jp_eval.schemas import DatasetProfile
 from llm_jp_eval_inference.generator import GeneratorBase
 
 logger = logging.getLogger(__name__)
-transformers.logging.set_verbosity_info()
+
+# Set transformers verbosity based on command
+if "get_run_name" not in sys.argv:
+    transformers.logging.set_verbosity_info()
+else:
+    transformers.logging.set_verbosity_error()
 
 
 def inference(cfg: InferenceConfig):
@@ -99,7 +112,10 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
             sampling_params.max_tokens = max_output_len
         with torch.inference_mode():
             results = copy.deepcopy(target_data)
-            outputs = self.model.generate(sampling_params=sampling_params, prompt_token_ids=prompt_tokens)
+            # prompt_tokens: List[List[int]]
+            outputs = self.model.generate(
+                sampling_params=sampling_params, prompts=[{"prompt_token_ids": tokens} for tokens in prompt_tokens]
+            )
             for i, output in enumerate(outputs):
                 if hasattr(self.cfg.model, "reasoning_parser"):
                     reasoning_content, content = self._parse_reasoning_content(output.outputs[0].text)
