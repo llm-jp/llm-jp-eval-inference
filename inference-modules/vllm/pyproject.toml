@@ -3,15 +3,16 @@ name = "inference-modules-transformers"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.10, <3.13"
+requires-python = ">=3.11, <3.13"
 dependencies = [
     "llm-jp-eval-inference",
-    "torch>=2.4.0",
+    "torch>=2.6.0",
     "transformers>=4.45.1",
-    "vllm==v0.9.0.1",
+    "vllm==0.11.0",
 ]
 
 [tool.uv]
 no-binary-package = ["pyairports"]
+
 [tool.uv.sources]
 llm-jp-eval-inference = { path = "../../", editable = true }

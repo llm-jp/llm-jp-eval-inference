@@ -15,7 +15,6 @@ class ModelConfig(BaseModel):
     tensor_parallel_size: int = 1
     pipeline_parallel_size: int = 1
     max_model_len: int = 4096
-    num_scheduler_steps: int = 8
     enable_prefix_caching: bool = True
 
 
