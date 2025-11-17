@@ -18,9 +18,9 @@ import vllm.sampling_params
 
 from schemas import InferenceConfig
 from transformers import PreTrainedTokenizerBase
+from vllm.entrypoints.harmony_utils import parse_chat_output
 from vllm.entrypoints.openai.protocol import ChatCompletionRequest
 from vllm.reasoning.abs_reasoning_parsers import ReasoningParserManager
-from vllm.entrypoints.harmony_utils import parse_chat_output
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
@@ -95,9 +95,7 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
             parser_class = ReasoningParserManager.get_reasoning_parser(self.cfg.model.reasoning_parser)
             self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
 
-    def _parse_reasoning_content(
-        self, output_token_ids: list[int], output_text: str
-    ) -> tuple[str | None, str]:
+    def _parse_reasoning_content(self, output_token_ids: list[int], output_text: str) -> tuple[str | None, str]:
         # GPT-OSS: reasoning parser's extract_reasoning_content is not implemented for non-streaming mode
         # Use parse_chat_output directly to parse Harmony format token IDs
         if self.cfg.model.reasoning_parser == "openai_gptoss":
