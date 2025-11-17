@@ -20,6 +20,7 @@ from schemas import InferenceConfig
 from transformers import PreTrainedTokenizerBase
 from vllm.entrypoints.openai.protocol import ChatCompletionRequest
 from vllm.reasoning.abs_reasoning_parsers import ReasoningParserManager
+from vllm.entrypoints.harmony_utils import parse_chat_output
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
@@ -94,9 +95,24 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
             parser_class = ReasoningParserManager.get_reasoning_parser(self.cfg.model.reasoning_parser)
             self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
 
-    def _parse_reasoning_content(self, model_output: str) -> tuple[str | None, str]:
-        # tuple[reasoning_content, content]
-        return self.reasoning_parser.extract_reasoning_content(model_output, request=ChatCompletionRequest(messages=[]))
+    def _parse_reasoning_content(
+        self, output_token_ids: list[int], output_text: str
+    ) -> tuple[str | None, str]:
+        # GPT-OSS: reasoning parser's extract_reasoning_content is not implemented for non-streaming mode
+        # Use parse_chat_output directly to parse Harmony format token IDs
+        if self.cfg.model.reasoning_parser == "openai_gptoss":
+            reasoning_content, final_content, _ = parse_chat_output(output_token_ids)
+
+            # If generation stopped during reasoning phase, use reasoning_content as final answer
+            if final_content is None and reasoning_content:
+                final_content = reasoning_content
+                reasoning_content = None
+
+            return reasoning_content, final_content or ""
+        else:
+            return self.reasoning_parser.extract_reasoning_content(
+                output_text, request=ChatCompletionRequest(messages=[])
+            )
 
     def generate(
         self,
@@ -118,7 +134,9 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
             )
             for i, output in enumerate(outputs):
                 if hasattr(self.cfg.model, "reasoning_parser"):
-                    reasoning_content, content = self._parse_reasoning_content(output.outputs[0].text)
+                    reasoning_content, content = self._parse_reasoning_content(
+                        output.outputs[0].token_ids, output.outputs[0].text
+                    )
                     results["samples"][i]["reasoning_content"] = (
                         reasoning_content.lstrip() if reasoning_content else None
                     )
