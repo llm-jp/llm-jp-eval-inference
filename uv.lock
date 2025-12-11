@@ -1181,7 +1181,7 @@ wheels = [
 [[package]]
 name = "llm-jp-eval"
 version = "2.0.0"
-source = { git = "https://github.com/llm-jp/llm-jp-eval?tag=v2.1.0#c5396803de3e3d3dfe884bfdb559b50746df37a1" }
+source = { git = "https://github.com/llm-jp/llm-jp-eval?branch=work%2Fhle_answer_pattern#1856622a258c1263459e0d37e5ae349dd8d96078" }
 dependencies = [
     { name = "accelerate" },
     { name = "bert-score" },
@@ -1232,7 +1232,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "llm-jp-eval", git = "https://github.com/llm-jp/llm-jp-eval?tag=v2.1.0" },
+    { name = "llm-jp-eval", git = "https://github.com/llm-jp/llm-jp-eval?branch=work%2Fhle_answer_pattern" },
     { name = "lxml", specifier = "<=5.3.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
 ]

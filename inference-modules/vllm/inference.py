@@ -89,11 +89,17 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
                 logger.info("setting pad_token_id=eos_token_id")
 
     def load_model(self, dataset_profile: Dict[str, DatasetProfile]):
-        self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
-        self.model.set_tokenizer(self.tokenizer)
         if hasattr(self.cfg.model, "reasoning_parser"):
             parser_class = ReasoningParserManager.get_reasoning_parser(self.cfg.model.reasoning_parser)
             self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
+            # add context length for reasoning content
+            if self.cfg.reasoning_content_length is not None:
+                self.cfg.model.max_model_len += self.cfg.reasoning_content_length
+            else:
+                # set model context length
+                self.cfg.model.max_model_len = None
+        self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
+        self.model.set_tokenizer(self.tokenizer)
 
     def _parse_reasoning_content(self, output_token_ids: list[int], output_text: str) -> tuple[str | None, str]:
         # GPT-OSS: reasoning parser's extract_reasoning_content is not implemented for non-streaming mode
@@ -108,9 +114,7 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
 
             return reasoning_content, final_content or ""
         else:
-            return self.reasoning_parser.extract_reasoning_content(
-                output_text, request=ChatCompletionRequest(messages=[])
-            )
+            return self.reasoning_parser.extract_reasoning(output_text, request=ChatCompletionRequest(messages=[]))
 
     def generate(
         self,
@@ -123,7 +127,14 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         sampling_params = vllm.sampling_params.SamplingParams(**self.cfg.generation_config.model_dump())
 
         if self.cfg.generation_config.max_tokens is None:
-            sampling_params.max_tokens = max_output_len
+            # Add reasoning_content_length for models with reasoning_parser
+            if hasattr(self.cfg.model, "reasoning_parser"):
+                if self.cfg.reasoning_content_length is None:
+                    sampling_params.max_tokens = None
+                else:
+                    sampling_params.max_tokens = max_output_len + self.cfg.reasoning_content_length
+            else:
+                sampling_params.max_tokens = max_output_len
         with torch.inference_mode():
             results = copy.deepcopy(target_data)
             # prompt_tokens: List[List[int]]
