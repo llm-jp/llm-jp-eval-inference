@@ -12,8 +12,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-# llm-jp-eval = { git = "https://github.com/llm-jp/llm-jp-eval", tag = "v2.1.1" }
-llm-jp-eval = { git = "https://github.com/llm-jp/llm-jp-eval", branch = "work/hle_answer_pattern" }
+llm-jp-eval = { git = "https://github.com/llm-jp/llm-jp-eval", tag = "v2.1.2" }
 
 [build-system]
 requires = ["hatchling"]

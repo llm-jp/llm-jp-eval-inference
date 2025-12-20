@@ -90,14 +90,17 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
 
     def load_model(self, dataset_profile: Dict[str, DatasetProfile]):
         if hasattr(self.cfg.model, "reasoning_parser"):
-            parser_class = ReasoningParserManager.get_reasoning_parser(self.cfg.model.reasoning_parser)
-            self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
-            # add context length for reasoning content
-            if self.cfg.reasoning_content_length is not None:
-                self.cfg.model.max_model_len += self.cfg.reasoning_content_length
-            else:
-                # set model context length
-                self.cfg.model.max_model_len = None
+            reasoning_parser = self.cfg.model.reasoning_parser
+            # Handle empty string, "null" string, or None
+            if reasoning_parser and str(reasoning_parser).strip() and str(reasoning_parser).strip().lower() != "null":
+                parser_class = ReasoningParserManager.get_reasoning_parser(reasoning_parser)
+                self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
+                # add context length for reasoning content
+                if self.cfg.reasoning_content_length is not None:
+                    self.cfg.model.max_model_len += self.cfg.reasoning_content_length
+                else:
+                    # set model context length
+                    self.cfg.model.max_model_len = None
         self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
         self.model.set_tokenizer(self.tokenizer)
 
