@@ -1,5 +1,5 @@
 [project]
-name = "inference-modules-transformers"
+name = "inference-modules-vllm"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -8,7 +8,7 @@ dependencies = [
     "llm-jp-eval-inference",
     "torch>=2.6.0",
     "transformers>=4.45.1",
-    "vllm==0.11.0",
+    "vllm==0.11.2",
 ]
 
 [tool.uv]

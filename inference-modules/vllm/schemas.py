@@ -14,8 +14,9 @@ class ModelConfig(BaseModel):
     gpu_memory_utilization: float = 0.9
     tensor_parallel_size: int = 1
     pipeline_parallel_size: int = 1
-    max_model_len: int = 4096
+    max_model_len: int | None = 4096
     enable_prefix_caching: bool = True
+    reasoning_parser: str | None = None
 
 
 class TokenizerConfig(BaseModel):
@@ -55,3 +56,4 @@ class InferenceConfig(BaseInferenceConfig):
     model: ModelConfig
     tokenizer: TokenizerConfig
     generation_config: VLLMSamplingParams = Field(default_factory=VLLMSamplingParams)
+    reasoning_content_length: int | None = None
