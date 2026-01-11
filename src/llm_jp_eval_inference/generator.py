@@ -123,7 +123,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
                         "apply_chat_template is set, but tokenizer.chat_template is None. Falling back to default tokenization."
                     )
                 samples = [sample["prompt"] for sample in target_data["samples"]]
-                prompt_tokens = self.tokenizer(samples, **self.cfg.tokenize_kwargs)["input_ids"]
+                prompt_tokens = self.tokenizer(samples, **{self.cfg.tokenize_kwargs})["input_ids"]
 
             prompt_lengths = [len(_) for _ in prompt_tokens]
             tokenized_dataset[target_dataset] = (

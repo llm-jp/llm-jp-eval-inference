@@ -4,6 +4,13 @@ from pydantic import BaseModel, Field
 
 from llm_jp_eval.schemas import BaseInferenceResultConfig, InferenceResultInfo
 
+# Define the set of allowed keyword arguments for the tokenizer's tokenize method
+# apply_chat_template 
+# https://github.com/huggingface/transformers/blob/v5.0.0rc1/src/transformers/tokenization_utils_base.py#L2523-L2541
+tokenize_kwargs: set = {
+
+}
+
 
 # these values will be used only for logging and wandb (no effect for running environment)
 class MetaInfo(BaseModel):

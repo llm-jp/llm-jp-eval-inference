@@ -72,6 +72,7 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         self.max_len = cfg.model.max_model_len
         self.tp = cfg.model.tensor_parallel_size
         self.pp = cfg.model.pipeline_parallel_size
+        self.enable_reasoning = False
 
         self.run_options = []
         if cfg.model.enable_prefix_caching:
@@ -89,18 +90,18 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
                 logger.info("setting pad_token_id=eos_token_id")
 
     def load_model(self, dataset_profile: Dict[str, DatasetProfile]):
-        if hasattr(self.cfg.model, "reasoning_parser"):
-            reasoning_parser = self.cfg.model.reasoning_parser
-            # Handle empty string, "null" string, or None
-            if reasoning_parser and str(reasoning_parser).strip() and str(reasoning_parser).strip().lower() != "null":
-                parser_class = ReasoningParserManager.get_reasoning_parser(reasoning_parser)
-                self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
-                # add context length for reasoning content
-                if self.cfg.reasoning_content_length is not None:
-                    self.cfg.model.max_model_len += self.cfg.reasoning_content_length
-                else:
-                    # set model context length
-                    self.cfg.model.max_model_len = None
+        reasoning_parser = self.cfg.model.reasoning_parser
+        # Handle empty string, "null" string, or None
+        if reasoning_parser and str(reasoning_parser).strip() and str(reasoning_parser).strip().lower() != "null":
+            parser_class = ReasoningParserManager.get_reasoning_parser(reasoning_parser)
+            self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
+            self.enable_reasoning = True
+            # add context length for reasoning content
+            if self.cfg.reasoning_content_length is not None:
+                self.cfg.model.max_model_len += self.cfg.reasoning_content_length
+            else:
+                # set model context length
+                self.cfg.model.max_model_len = None
         self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
         self.model.set_tokenizer(self.tokenizer)
 
@@ -131,13 +132,16 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
 
         if self.cfg.generation_config.max_tokens is None:
             # Add reasoning_content_length for models with reasoning_parser
-            if hasattr(self.cfg.model, "reasoning_parser"):
+            if self.enable_reasoning:
                 if self.cfg.reasoning_content_length is None:
                     sampling_params.max_tokens = None
                 else:
+                    logger.info(f"Adding reasoning content length: {self.cfg.reasoning_content_length}")
                     sampling_params.max_tokens = max_output_len + self.cfg.reasoning_content_length
             else:
                 sampling_params.max_tokens = max_output_len
+            logger.info(f"Setting max_tokens to {sampling_params.max_tokens}")
+
         with torch.inference_mode():
             results = copy.deepcopy(target_data)
             # prompt_tokens: List[List[int]]
@@ -145,7 +149,7 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
                 sampling_params=sampling_params, prompts=[{"prompt_token_ids": tokens} for tokens in prompt_tokens]
             )
             for i, output in enumerate(outputs):
-                if hasattr(self.cfg.model, "reasoning_parser"):
+                if self.enable_reasoning:
                     reasoning_content, content = self._parse_reasoning_content(
                         output.outputs[0].token_ids, output.outputs[0].text
                     )
