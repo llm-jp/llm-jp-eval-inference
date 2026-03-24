@@ -7,12 +7,17 @@ requires-python = ">=3.11, <3.13"
 dependencies = [
     "llm-jp-eval-inference",
     "torch>=2.10.0",
-    "transformers>=5.1.0",
     "vllm>=0.17.0",
 ]
 
 [tool.uv]
 no-binary-package = ["pyairports"]
+# Override protobuf upper bound from unbabel-comet (llm-jp-eval dep).
+# COMET evaluation is not used in inference modules, so this is safe.
+override-dependencies = [
+    "protobuf>=5.29.6",
+    "numpy>=2.0.0",
+]
 
 [tool.uv.sources]
 llm-jp-eval-inference = { path = "../../", editable = true }
