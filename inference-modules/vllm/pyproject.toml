@@ -12,11 +12,13 @@ dependencies = [
 
 [tool.uv]
 no-binary-package = ["pyairports"]
-# Override protobuf upper bound from unbabel-comet (llm-jp-eval dep).
-# COMET evaluation is not used in inference modules, so this is safe.
+# Override transitive dep upper bounds from llm-jp-eval (unbabel-comet, langchain, etc.).
+# These packages are not used in inference modules, so this is safe.
 override-dependencies = [
-    "protobuf>=5.29.6",
+    "protobuf>=5.29.6,<7",
     "numpy>=2.0.0",
+    "pyarrow>=16.0.0",
+    "wandb>=0.19.6,<0.20.dev0",
 ]
 
 [tool.uv.sources]
