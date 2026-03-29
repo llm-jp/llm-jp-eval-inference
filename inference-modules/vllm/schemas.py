@@ -31,7 +31,6 @@ class VLLMSamplingParams(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     n: int = 1
-    best_of: Optional[int] = None
     presence_penalty: float = 0.0
     frequency_penalty: float = 0.0
     repetition_penalty: float = 1.0

@@ -1,7 +1,7 @@
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
-from transformers import GenerationConfig
+from transformers import BitsAndBytesConfig, GenerationConfig
 
 from llm_jp_eval_inference.schemas import BaseInferenceConfig
 
@@ -13,6 +13,20 @@ class ModelConfig(BaseModel):
     torch_dtype: str = "bfloat16"
     load_in_8bit: bool = False
     load_in_4bit: bool = False
+
+    def to_from_pretrained_kwargs(self) -> dict[str, Any]:
+        """Build kwargs for AutoModelForCausalLM.from_pretrained().
+
+        Excludes deprecated load_in_4bit/load_in_8bit fields and injects
+        BitsAndBytesConfig via quantization_config when quantization is requested.
+        """
+        kwargs = self.model_dump(exclude={"load_in_4bit", "load_in_8bit"})
+        if self.load_in_4bit or self.load_in_8bit:
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=self.load_in_4bit,
+                load_in_8bit=self.load_in_8bit,
+            )
+        return kwargs
 
 
 class TokenizerConfig(BaseModel):

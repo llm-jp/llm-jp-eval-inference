@@ -63,10 +63,10 @@ class TransformersGenerator(GeneratorBase[InferenceConfig]):
             self.cfg.model.pretrained_model_name_or_path = adapter_config["base_model_name_or_path"]
             if not self.base_model_name:
                 self.base_model_name = adapter_config["base_model_name_or_path"].strip(" \t\r\n./").replace("/", "--")
-            base_model = transformers.AutoModelForCausalLM.from_pretrained(**self.cfg.model.model_dump())
+            base_model = transformers.AutoModelForCausalLM.from_pretrained(**self.cfg.model.to_from_pretrained_kwargs())
             self.model = PeftModel.from_pretrained(base_model, peft_dir)
         else:
-            self.model = transformers.AutoModelForCausalLM.from_pretrained(**self.cfg.model.model_dump())
+            self.model = transformers.AutoModelForCausalLM.from_pretrained(**self.cfg.model.to_from_pretrained_kwargs())
         self.model.eval()
 
     def generate(

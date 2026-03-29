@@ -18,9 +18,10 @@ import vllm.sampling_params
 
 from schemas import InferenceConfig
 from transformers import PreTrainedTokenizerBase
-from vllm.entrypoints.harmony_utils import parse_chat_output
-from vllm.entrypoints.openai.protocol import ChatCompletionRequest
+from vllm.entrypoints.openai.chat_completion.protocol import ChatCompletionRequest
+from vllm.entrypoints.openai.parser.harmony_utils import parse_chat_output
 from vllm.reasoning.abs_reasoning_parsers import ReasoningParserManager
+from vllm.tokenizers.hf import get_cached_tokenizer
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
@@ -103,7 +104,8 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
                 # set model context length
                 self.cfg.model.max_model_len = None
         self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
-        self.model.set_tokenizer(self.tokenizer)
+        # Inject the external tokenizer into vLLM's renderer (replaces deprecated set_tokenizer)
+        self.model.llm_engine.renderer.tokenizer = get_cached_tokenizer(self.tokenizer)
 
     def _parse_reasoning_content(self, output_token_ids: list[int], output_text: str) -> tuple[str | None, str]:
         # GPT-OSS: reasoning parser's extract_reasoning_content is not implemented for non-streaming mode
@@ -118,7 +120,17 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
 
             return reasoning_content, final_content or ""
         else:
-            return self.reasoning_parser.extract_reasoning(output_text, request=ChatCompletionRequest(messages=[]))
+            reasoning, content = self.reasoning_parser.extract_reasoning(
+                output_text, request=ChatCompletionRequest(messages=[])
+            )
+            # Handle None content (e.g., generation stopped during reasoning phase)
+            if content is None:
+                if reasoning:
+                    content = reasoning
+                    reasoning = None
+                else:
+                    content = ""
+            return reasoning, content
 
     def generate(
         self,

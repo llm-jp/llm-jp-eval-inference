@@ -7,9 +7,17 @@ requires-python = ">=3.10, <3.13"
 dependencies = [
     "bitsandbytes>=0.45.0",
     "llm-jp-eval-inference",
-    "peft==0.14.0",
+    "peft>=0.15.0",
     "torch>=2.4.0",
-    "transformers>=4.44.2",
+    "transformers>=5.1.0",
+]
+
+[tool.uv]
+# Override transitive dep upper bounds from llm-jp-eval (unbabel-comet, langchain, etc.).
+# These packages are not used in inference modules, so this is safe.
+override-dependencies = [
+    "transformers>=5.1.0",
+    "huggingface-hub>=1.3.0,<2.0",
 ]
 
 [tool.uv.sources]
