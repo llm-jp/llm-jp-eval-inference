@@ -16,11 +16,9 @@ import transformers
 import vllm
 import vllm.sampling_params
 
+from reasoning_adapters import find_adapter_class
 from schemas import InferenceConfig
 from transformers import PreTrainedTokenizerBase
-from vllm.entrypoints.openai.chat_completion.protocol import ChatCompletionRequest
-from vllm.entrypoints.openai.parser.harmony_utils import parse_chat_output
-from vllm.reasoning.abs_reasoning_parsers import ReasoningParserManager
 from vllm.tokenizers.hf import get_cached_tokenizer
 
 from llm_jp_eval.cli import setup_cli
@@ -94,8 +92,9 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         reasoning_parser = self.cfg.model.reasoning_parser
         # Handle empty string, "null" string, or None
         if reasoning_parser and str(reasoning_parser).strip() and str(reasoning_parser).strip().lower() != "null":
-            parser_class = ReasoningParserManager.get_reasoning_parser(reasoning_parser)
-            self.reasoning_parser = parser_class(tokenizer=self.tokenizer)
+            adapter_cls = find_adapter_class(reasoning_parser)
+            # Adapter may rewrite cfg.model.reasoning_parser inside __init__.
+            self.reasoning_adapter = adapter_cls(self.cfg.model, self.tokenizer)
             self.enable_reasoning = True
             # add context length for reasoning content
             if self.cfg.reasoning_content_length is not None:
@@ -107,31 +106,6 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         # Inject the external tokenizer into vLLM's renderer (replaces deprecated set_tokenizer)
         self.model.llm_engine.renderer.tokenizer = get_cached_tokenizer(self.tokenizer)
 
-    def _parse_reasoning_content(self, output_token_ids: list[int], output_text: str) -> tuple[str | None, str]:
-        # GPT-OSS: reasoning parser's extract_reasoning_content is not implemented for non-streaming mode
-        # Use parse_chat_output directly to parse Harmony format token IDs
-        if self.cfg.model.reasoning_parser == "openai_gptoss":
-            reasoning_content, final_content, _ = parse_chat_output(output_token_ids)
-
-            # If generation stopped during reasoning phase, use reasoning_content as final answer
-            if final_content is None and reasoning_content:
-                final_content = reasoning_content
-                reasoning_content = None
-
-            return reasoning_content, final_content or ""
-        else:
-            reasoning, content = self.reasoning_parser.extract_reasoning(
-                output_text, request=ChatCompletionRequest(messages=[])
-            )
-            # Handle None content (e.g., generation stopped during reasoning phase)
-            if content is None:
-                if reasoning:
-                    content = reasoning
-                    reasoning = None
-                else:
-                    content = ""
-            return reasoning, content
-
     def generate(
         self,
         max_input_len: int,
@@ -141,6 +115,8 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         prompt_lengths: list,
     ) -> Dict[str, Any]:
         sampling_params = vllm.sampling_params.SamplingParams(**self.cfg.generation_config.model_dump())
+        if self.enable_reasoning:
+            self.reasoning_adapter.adjust_sampling_params(sampling_params)
 
         if self.cfg.generation_config.max_tokens is None:
             # Add reasoning_content_length for models with reasoning_parser
@@ -162,7 +138,7 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
             )
             for i, output in enumerate(outputs):
                 if self.enable_reasoning:
-                    reasoning_content, content = self._parse_reasoning_content(
+                    reasoning_content, content = self.reasoning_adapter.parse_output(
                         output.outputs[0].token_ids, output.outputs[0].text
                     )
                     results["samples"][i]["reasoning_content"] = (
