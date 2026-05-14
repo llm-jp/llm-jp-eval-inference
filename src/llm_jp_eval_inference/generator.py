@@ -113,7 +113,10 @@ class GeneratorBase(Generic[InferenceConfigT]):
             if self.cfg.apply_chat_template and self.tokenizer.chat_template is not None:
                 prompt_tokens = [
                     self.tokenizer.apply_chat_template(
-                        _message(sample), add_generation_prompt=True, **self.cfg.tokenize_kwargs
+                        _message(sample),
+                        add_generation_prompt=True,
+                        return_dict=False,
+                        **self.cfg.tokenize_kwargs,
                     )
                     for sample in target_data["samples"]
                 ]

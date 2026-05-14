@@ -7,7 +7,10 @@ requires-python = ">=3.11, <3.13"
 dependencies = [
     "llm-jp-eval-inference",
     "torch>=2.10.0",
-    "vllm>=0.17.0",
+    "vllm>=0.19.1",
+    # Gemma 4 系 tokenizer_config.json が `extra_special_tokens` を list で持つのに、
+    # transformers 4.x は dict 前提で AttributeError になるため 5.6+ を要求。
+    "transformers>=5.6.0",
 ]
 
 [tool.uv]
@@ -19,6 +22,15 @@ override-dependencies = [
     "numpy>=2.0.0",
     "pyarrow>=16.0.0",
     "wandb>=0.19.6,<0.20.dev0",
+    "openai>=2.0.0",
+    "langchain-openai>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langchain-huggingface>=0.1.0",
+    "pydantic-settings>=2.10.1",
+    # unbabel-comet は transformers<5 / huggingface-hub<1 を要求するが、推論モジュールでは未使用。
+    "transformers>=5.6.0",
+    "huggingface-hub>=1.5.0",
 ]
 
 [tool.uv.sources]
