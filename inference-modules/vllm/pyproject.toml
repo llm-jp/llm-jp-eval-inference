@@ -7,7 +7,8 @@ requires-python = ">=3.11, <3.13"
 dependencies = [
     "llm-jp-eval-inference",
     "torch>=2.10.0",
-    "vllm>=0.19.1",
+    # 0.20+ は torch が CUDA 13 ビルド固定になるため NVIDIA driver 580.65+ が必要。
+    "vllm>=0.20.0,<0.29",
     # Gemma 4 系 tokenizer_config.json が `extra_special_tokens` を list で持つのに、
     # transformers 4.x は dict 前提で AttributeError になるため 5.6+ を要求。
     "transformers>=5.6.0",
