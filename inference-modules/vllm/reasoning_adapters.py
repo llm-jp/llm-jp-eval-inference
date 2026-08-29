@@ -22,10 +22,52 @@ import vllm
 from schemas import ModelConfig
 from transformers import PreTrainedTokenizerBase
 from vllm.entrypoints.openai.chat_completion.protocol import ChatCompletionRequest
-from vllm.entrypoints.openai.parser.harmony_utils import get_encoding, parse_chat_output
+from vllm.entrypoints.openai.parser.harmony_utils import (
+    get_encoding,
+    get_streamable_parser_for_assistant,
+)
 from vllm.reasoning.abs_reasoning_parsers import ReasoningParserManager
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_harmony_output(token_ids: list[int]) -> tuple[str | None, str | None]:
+    """Split Harmony assistant token IDs into (reasoning, final content).
+
+    Ported from vLLM's ``harmony_utils.parse_chat_output``, removed in vLLM
+    0.24.0. ``get_streamable_parser_for_assistant`` is the surviving building
+    block and exists across the whole 0.20-0.28 range, so vendoring the ~20
+    lines here decouples this module from vLLM's serving-side refactors.
+
+    Tool-call channels (``commentary`` with a recipient) are dropped: llm-jp-eval
+    never enables tools, and upstream routed those to a separate tool parser.
+
+    Args:
+        token_ids: Harmony-encoded token IDs of a single assistant turn.
+
+    Returns:
+        ``(reasoning, final_content)``. Either element is None when the
+        corresponding channel produced no text.
+    """
+    parser = get_streamable_parser_for_assistant()
+    for token_id in token_ids:
+        parser.process(token_id)
+
+    def _is_visible(channel: str | None, recipient: str | None) -> bool:
+        return channel == "final" or (channel == "commentary" and not recipient)
+
+    reasoning_texts = [msg.content[0].text for msg in parser.messages if msg.channel == "analysis"]
+    final_texts = [msg.content[0].text for msg in parser.messages if _is_visible(msg.channel, msg.recipient)]
+
+    # A truncated generation leaves the last message unterminated, so its text
+    # lives in the parser's current_* state rather than in parser.messages.
+    if parser.current_content:
+        if parser.current_channel == "analysis":
+            reasoning_texts.append(parser.current_content)
+        elif _is_visible(parser.current_channel, parser.current_recipient):
+            final_texts.append(parser.current_content)
+
+    return "\n".join(reasoning_texts) or None, "\n".join(final_texts) or None
 
 
 class ReasoningAdapter(ABC):
@@ -70,7 +112,7 @@ class GptOssReasoningAdapter(ReasoningAdapter):
     parser_name = "openai_gptoss"
 
     def parse_output(self, output_token_ids: list[int], output_text: str) -> tuple[str | None, str]:
-        reasoning, final, _ = parse_chat_output(output_token_ids)
+        reasoning, final = _parse_harmony_output(output_token_ids)
         if final is None:
             return (None, reasoning) if reasoning else (None, "")
         return reasoning, final
@@ -79,7 +121,7 @@ class GptOssReasoningAdapter(ReasoningAdapter):
 class Llmjp4ReasoningAdapter(ReasoningAdapter):
     # llm-jp-4 emits Harmony channels but its tokenizer is not the
     # openai-harmony vocabulary, so the model's token IDs cannot be fed to
-    # parse_chat_output directly. Decode with special tokens preserved,
+    # the Harmony parser directly. Decode with special tokens preserved,
     # collapse the trailing spaces some tokenizers introduce after special
     # tokens, then re-encode through openai-harmony before parsing.
     parser_name = "llmjp4"
@@ -96,7 +138,7 @@ class Llmjp4ReasoningAdapter(ReasoningAdapter):
         normalized = self._SPECIAL_TOKEN_TRAILING_SPACE.sub(r"\1", text)
         try:
             harmony_token_ids = get_encoding().encode(normalized, allowed_special="all")
-            reasoning, final, _ = parse_chat_output(harmony_token_ids)
+            reasoning, final = _parse_harmony_output(harmony_token_ids)
         except Exception as e:
             # Truncated / malformed Harmony output: surface raw text instead
             # of failing the whole batch.
