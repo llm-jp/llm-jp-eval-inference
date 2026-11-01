@@ -17,6 +17,28 @@ $ uv sync
 
 `config_sample.yaml`を編集して使用してください。
 
+## chat template・reasoning・tool calling の設定
+
+| 設定 | 内容 |
+| --- | --- |
+| `apply_chat_template` | `true` で tokenizer の chat template を使う。messages 入力のデータセット（JMultiWOZ-TC など）では必須 |
+| `tokenize_kwargs` | tokenizer に渡す追加引数。chat template を使うときは template 変数としても渡る（例: `enable_thinking`） |
+| `model.reasoning_parser` | vLLM の reasoning parser 名（例: `qwen3`）。指定すると思考部分を `reasoning_content` に分けて保存する |
+| `reasoning_content_length` | reasoning 用に出力長とコンテキスト長へ足すトークン数 |
+| `tool_call_parser` | vLLM の tool parser 名（例: `hermes`、`llama3_json`、`mistral`）。tools のあるデータセットでは必須で、生成文から `tool_calls` を読む |
+| `tool_parser_plugin` | 独自の tool parser を登録する Python ファイルのパス。`tool_call_parser` でその登録名を指定する |
+
+`tool_call_parser` と `tool_parser_plugin` は vLLM サーバの `--tool-call-parser` / `--tool-parser-plugin` に対応します。
+vLLM のエンジン引数ではないため、`model` ではなく最上位に書きます。
+
+```yaml
+apply_chat_template: true
+model:
+  model: Qwen/Qwen3-8B
+  reasoning_parser: qwen3
+tool_call_parser: hermes
+```
+
 ## 推論の実行
 
 `config_sample.yaml`の設定にすべて従う場合はこちら。

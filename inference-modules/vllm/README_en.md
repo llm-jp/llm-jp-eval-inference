@@ -17,6 +17,28 @@ $ uv sync
 
 please edit and use `config_sample.yaml`.
 
+## Chat Template, Reasoning and Tool Calling
+
+| Setting | Description |
+| --- | --- |
+| `apply_chat_template` | `true` uses the chat template of the tokenizer. Required for datasets with messages input such as JMultiWOZ-TC |
+| `tokenize_kwargs` | Extra arguments for the tokenizer. With a chat template they are also passed as template variables (e.g. `enable_thinking`) |
+| `model.reasoning_parser` | vLLM reasoning parser name (e.g. `qwen3`). The reasoning part is saved separately as `reasoning_content` |
+| `reasoning_content_length` | Tokens added to the output length and context length for reasoning |
+| `tool_call_parser` | vLLM tool parser name (e.g. `hermes`, `llama3_json`, `mistral`). Required for datasets with tools; `tool_calls` are read from the generated text |
+| `tool_parser_plugin` | Path to a Python file that registers a custom tool parser. Refer to its registered name with `tool_call_parser` |
+
+`tool_call_parser` and `tool_parser_plugin` correspond to `--tool-call-parser` / `--tool-parser-plugin` of the vLLM server.
+They are not engine arguments, so write them at the top level instead of under `model`.
+
+```yaml
+apply_chat_template: true
+model:
+  model: Qwen/Qwen3-8B
+  reasoning_parser: qwen3
+tool_call_parser: hermes
+```
+
 ## running inference
 
 if you want to follow all settings in `config_sample.yaml`, use this:

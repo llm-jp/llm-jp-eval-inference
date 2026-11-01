@@ -1,4 +1,4 @@
-run_name: null  # This value will be applied to both offline_inference.run_name and wandb.run_name with the highest priority.
+run_name: null  # Used as the output directory name and the wandb run name with the highest priority.
 
 wandb:
   launch: false
@@ -10,6 +10,12 @@ tokenize_kwargs:
 
 model:
   model: llm-jp/llm-jp-3-3.7b-instruct
+  # reasoning_parser: qwen3
+
+# apply_chat_template: true
+# Required for datasets with tools, e.g. JMultiWOZ-TC (same names as the vLLM server options)
+# tool_call_parser: hermes
+# tool_parser_plugin: null
 
 tokenizer:
   pretrained_model_name_or_path: llm-jp/llm-jp-3-3.7b-instruct
