@@ -24,7 +24,9 @@ CHAT_MESSAGES = [
 
 class _Generator(GeneratorBase):
     def __init__(self, apply_chat_template: bool, supports_tools: bool = False):
-        cfg = BaseInferenceConfig(generation_config={}, apply_chat_template=apply_chat_template, meta={"lib_type": "test"})
+        cfg = BaseInferenceConfig(
+            generation_config={}, apply_chat_template=apply_chat_template, meta={"lib_type": "test"}
+        )
         super().__init__(cfg, "test", None)
         self.tokenizer = AutoTokenizer.from_pretrained(TOKENIZER)
         self._supports_tools = supports_tools

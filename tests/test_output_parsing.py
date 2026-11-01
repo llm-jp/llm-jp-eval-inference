@@ -14,7 +14,11 @@ def _tool_calls(parsed, output_token_ids, tools):
     if not tools:
         return parsed
     assert "</think>" not in parsed.content, "tool calls are parsed after reasoning is removed"
-    calls = [{"id": "c0", "type": "function", "function": {"name": "f", "arguments": "{}"}}] if "<call>" in parsed.content else []
+    calls = (
+        [{"id": "c0", "type": "function", "function": {"name": "f", "arguments": "{}"}}]
+        if "<call>" in parsed.content
+        else []
+    )
     return dataclasses.replace(parsed, content=parsed.content.replace("<call>", ""), tool_calls=calls)
 
 
