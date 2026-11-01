@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 
-from typing import Any, Dict
+from typing import Any, Dict, Sequence
 
 # Suppress vLLM logs before importing (for get_run_name command)
 if "get_run_name" in sys.argv:
@@ -16,14 +16,16 @@ import transformers
 import vllm
 import vllm.sampling_params
 
-from reasoning_adapters import find_adapter_class
+from output_parsing import OutputParser, parse_output
+from reasoning_adapters import ReasoningAdapter, find_adapter_class
 from schemas import InferenceConfig
+from tool_call_adapters import ToolCallAdapter
 from transformers import PreTrainedTokenizerBase
 from vllm.tokenizers.hf import get_cached_tokenizer
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
-from llm_jp_eval_inference.generator import GeneratorBase
+from llm_jp_eval_inference.generator import GeneratorBase, TokenizedDataset
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,13 @@ if "get_run_name" not in sys.argv:
     transformers.logging.set_verbosity_info()
 else:
     transformers.logging.set_verbosity_error()
+
+
+def _parser_name(value: str | None) -> str | None:
+    # Config templates write an unset parser as "" or "null"
+    if value is None or value.strip().lower() in ("", "null"):
+        return None
+    return value.strip()
 
 
 def inference(cfg: InferenceConfig):
@@ -71,7 +80,8 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         self.max_len = cfg.model.max_model_len
         self.tp = cfg.model.tensor_parallel_size
         self.pp = cfg.model.pipeline_parallel_size
-        self.enable_reasoning = False
+        self.reasoning_adapter: ReasoningAdapter | None = None
+        self.tool_call_adapter: ToolCallAdapter | None = None
 
         self.run_options = []
         if cfg.model.enable_prefix_caching:
@@ -88,39 +98,40 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
             if self.is_master_process:
                 logger.info("setting pad_token_id=eos_token_id")
 
+    def supports_tool_calls(self) -> bool:
+        return _parser_name(self.cfg.tool_call_parser) is not None
+
     def load_model(self, dataset_profile: Dict[str, DatasetProfile]):
-        reasoning_parser = self.cfg.model.reasoning_parser
-        # Handle empty string, "null" string, or None
-        if reasoning_parser and str(reasoning_parser).strip() and str(reasoning_parser).strip().lower() != "null":
-            adapter_cls = find_adapter_class(reasoning_parser)
-            # Adapter may rewrite cfg.model.reasoning_parser inside __init__.
-            self.reasoning_adapter = adapter_cls(self.cfg.model, self.tokenizer)
-            self.enable_reasoning = True
+        # Engine arguments are built locally so that _config.json keeps the settings as the user wrote them
+        engine_kwargs = self.cfg.model.model_dump()
+        reasoning_parser = _parser_name(self.cfg.model.reasoning_parser)
+        if reasoning_parser is not None:
+            self.reasoning_adapter = find_adapter_class(reasoning_parser)(reasoning_parser, self.tokenizer)
+            engine_kwargs["reasoning_parser"] = self.reasoning_adapter.engine_parser_name
             # add context length for reasoning content
-            if self.cfg.reasoning_content_length is not None:
-                self.cfg.model.max_model_len += self.cfg.reasoning_content_length
+            if self.cfg.reasoning_content_length is not None and engine_kwargs["max_model_len"] is not None:
+                engine_kwargs["max_model_len"] += self.cfg.reasoning_content_length
             else:
                 # set model context length
-                self.cfg.model.max_model_len = None
-        self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
+                engine_kwargs["max_model_len"] = None
+        tool_call_parser = _parser_name(self.cfg.tool_call_parser)
+        if tool_call_parser is not None:
+            self.tool_call_adapter = ToolCallAdapter(tool_call_parser, self.cfg.tool_parser_plugin, self.tokenizer)
+        self.model: vllm.LLM = vllm.LLM(**engine_kwargs)
         # Inject the external tokenizer into vLLM's renderer (replaces deprecated set_tokenizer)
         self.model.llm_engine.renderer.tokenizer = get_cached_tokenizer(self.tokenizer)
 
-    def generate(
-        self,
-        max_input_len: int,
-        max_output_len: int,
-        target_data: Dict[str, Any],
-        prompt_tokens: list,
-        prompt_lengths: list,
-    ) -> Dict[str, Any]:
+    def generate(self, max_input_len: int, max_output_len: int, data: TokenizedDataset) -> Dict[str, Any]:
+        target_data = data.target_data
         sampling_params = vllm.sampling_params.SamplingParams(**self.cfg.generation_config.model_dump())
-        if self.enable_reasoning:
+        if self.reasoning_adapter is not None:
             self.reasoning_adapter.adjust_sampling_params(sampling_params)
+        if self.tool_call_adapter is not None and target_data.get("tools"):
+            self.tool_call_adapter.adjust_sampling_params(sampling_params, target_data["tools"])
 
         if self.cfg.generation_config.max_tokens is None:
             # Add reasoning_content_length for models with reasoning_parser
-            if self.enable_reasoning:
+            if self.reasoning_adapter is not None:
                 if self.cfg.reasoning_content_length is None:
                     sampling_params.max_tokens = None
                 else:
@@ -130,23 +141,19 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
                 sampling_params.max_tokens = max_output_len
             logger.info(f"Setting max_tokens to {sampling_params.max_tokens}")
 
+        parsers: Sequence[OutputParser] = [
+            parser for parser in (self.reasoning_adapter, self.tool_call_adapter) if parser is not None
+        ]
         with torch.inference_mode():
             results = copy.deepcopy(target_data)
-            # prompt_tokens: List[List[int]]
             outputs = self.model.generate(
-                sampling_params=sampling_params, prompts=[{"prompt_token_ids": tokens} for tokens in prompt_tokens]
+                sampling_params=sampling_params,
+                prompts=[{"prompt_token_ids": tokens} for tokens in data.prompt_token_ids],
             )
-            for i, output in enumerate(outputs):
-                if self.enable_reasoning:
-                    reasoning_content, content = self.reasoning_adapter.parse_output(
-                        output.outputs[0].token_ids, output.outputs[0].text
-                    )
-                    results["samples"][i]["reasoning_content"] = (
-                        reasoning_content.lstrip() if reasoning_content else None
-                    )
-                    results["samples"][i]["generated"] = content.lstrip() if content else ""
-                else:
-                    results["samples"][i]["generated"] = output.outputs[0].text
+            for sample, output in zip(results["samples"], outputs, strict=True):
+                tools = sample.get("tools") or target_data.get("tools")
+                parsed = parse_output(output.outputs[0].text, list(output.outputs[0].token_ids), tools, list(parsers))
+                sample.update(parsed.to_result_fields(self.reasoning_adapter is not None, bool(tools)))
         return results
 
 

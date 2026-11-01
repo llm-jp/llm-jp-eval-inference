@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from llm_jp_eval.schemas import BaseInferenceResultConfig, InferenceResultInfo
 
@@ -17,11 +17,14 @@ class MetaInfo(BaseModel):
 
 # Inherit the interface for passing to llm-jp-eval
 class BaseInferenceConfig(BaseInferenceResultConfig):
+    # Reject typos in inference configs; the evaluation side reads _config.json with extra fields allowed
+    model_config = ConfigDict(extra="forbid")
+
     meta: MetaInfo = Field(default_factory=MetaInfo)
     inference_result_info: InferenceResultInfo | None = None
     tokenize_kwargs: dict = Field(
         {"add_special_tokens": True},
-        description="additional arguments for tokenizer.tokenize",
+        description="additional arguments for tokenizer(); also passed to apply_chat_template as template variables",
     )
     apply_chat_template: bool = Field(False, description="apply chat template to the prompt")
 

@@ -6,13 +6,14 @@ import re
 import subprocess
 import sys
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Generic, List, Tuple, TypeVar
 
 import torch
 import wandb
 
-from llm_jp_eval.schemas import DatasetProfile, InferenceResultInfo
+from llm_jp_eval.schemas import DatasetProfile, InferenceInputData, InferenceResultInfo
 from llm_jp_eval_inference.schemas import BaseInferenceConfig
 from llm_jp_eval_inference.utility import set_seed
 
@@ -20,6 +21,32 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 InferenceConfigT = TypeVar("InferenceConfigT", bound=BaseInferenceConfig)
+
+
+@dataclass(frozen=True)
+class TokenizedDataset:
+    # Prompt dump as read from the file; results are written as a copy of it so that every field passes through
+    target_data: dict[str, Any]
+    prompt_token_ids: list[list[int]]
+
+    @property
+    def prompt_lengths(self) -> list[int]:
+        return [len(token_ids) for token_ids in self.prompt_token_ids]
+
+
+def _messages_for_chat_template(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Chat templates expect tool call arguments as a dict (the wire format carries a JSON string) and
+    # string contents; assistant messages that only call tools have content None.
+    converted = []
+    for message in messages:
+        message = {**message, "content": message.get("content") or ""}
+        if message.get("tool_calls"):
+            message["tool_calls"] = [
+                {**call, "function": {**call["function"], "arguments": json.loads(call["function"]["arguments"])}}
+                for call in message["tool_calls"]
+            ]
+        converted.append(message)
+    return converted
 
 
 class GeneratorBase(Generic[InferenceConfigT]):
@@ -56,14 +83,11 @@ class GeneratorBase(Generic[InferenceConfigT]):
     def set_max_output_length(self, max_tokens: int):
         raise NotImplementedError
 
-    def generate(
-        self,
-        max_input_len: int,
-        max_output_len: int,
-        target_data: Dict[str, Any],
-        prompt_tokens: list,
-        prompt_lengths: list,
-    ) -> Dict[str, Any]:
+    def supports_tool_calls(self) -> bool:
+        """Whether generated tool calls can be parsed into `tool_calls` of the results."""
+        return False
+
+    def generate(self, max_input_len: int, max_output_len: int, data: TokenizedDataset) -> Dict[str, Any]:
         raise NotImplementedError
 
     def load_dataset(self) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
@@ -86,6 +110,8 @@ class GeneratorBase(Generic[InferenceConfigT]):
                     logger.info(f"loading {target_file}")
                 with open(target_file, encoding="utf8") as fin:
                     target_data: Dict[str, Any] = json.load(fin)
+                # Validate against the schema of the pinned llm-jp-eval, which rejects dumps of other schema versions
+                InferenceInputData.model_validate(target_data)
                 assert target_data["target_dataset"] not in dataset, (
                     f"multiple entries: {target_data['target_dataset']} in {target_file}"
                 )
@@ -100,43 +126,57 @@ class GeneratorBase(Generic[InferenceConfigT]):
                         )
         return dataset, dump_prompts_config
 
-    def tokenize_dataset(self, dataset: Dict[str, Dict[str, Any]]) -> Dict[str, Tuple[Dict[str, Any], list, list]]:
-        def _message(sample: dict[str, Any]) -> list[dict[str, str]]:
-            messages = []
-            if "system_prompt" in sample and sample["system_prompt"]:
-                messages.append({"role": "system", "content": sample["system_prompt"]})
-            messages.append({"role": "user", "content": sample["prompt"]})
-            return messages
-
+    def tokenize_dataset(self, dataset: Dict[str, Dict[str, Any]]) -> Dict[str, TokenizedDataset]:
         tokenized_dataset = {}
         for target_dataset, target_data in dataset.items():
-            if self.cfg.apply_chat_template and self.tokenizer.chat_template is not None:
-                prompt_tokens = [
+            samples = target_data["samples"]
+            is_chat_dataset = any(sample["prompt"] is None for sample in samples)
+            has_tools = bool(target_data.get("tools")) or any(sample.get("tools") for sample in samples)
+            use_chat_template = self.cfg.apply_chat_template and self.tokenizer.chat_template is not None
+            if is_chat_dataset and not use_chat_template:
+                raise ValueError(
+                    f"{target_dataset} has messages input and needs a chat template; set apply_chat_template: true "
+                    "for a model whose tokenizer has a chat template."
+                )
+            if has_tools and not self.supports_tool_calls():
+                raise ValueError(
+                    f"{target_dataset} has tools, but {type(self).__name__} cannot parse tool calls with the current "
+                    "settings. Use the vllm module with tool_call_parser."
+                )
+
+            if use_chat_template:
+                prompt_token_ids = [
                     self.tokenizer.apply_chat_template(
-                        _message(sample),
+                        _messages_for_chat_template(sample["messages"]),
+                        tools=sample.get("tools") or target_data.get("tools"),
                         add_generation_prompt=True,
                         return_dict=False,
                         **self.cfg.tokenize_kwargs,
                     )
-                    for sample in target_data["samples"]
+                    for sample in samples
                 ]
+                if has_tools:
+                    self._warn_if_tools_dropped(target_dataset, target_data, prompt_token_ids[0])
             else:
                 if self.cfg.apply_chat_template:
                     logger.warning(
                         "apply_chat_template is set, but tokenizer.chat_template is None. Falling back to default tokenization."
                     )
-                samples = [sample["prompt"] for sample in target_data["samples"]]
-                prompt_tokens = self.tokenizer(samples, **self.cfg.tokenize_kwargs)["input_ids"]
+                prompts = [sample["prompt"] for sample in samples]
+                prompt_token_ids = self.tokenizer(prompts, **self.cfg.tokenize_kwargs)["input_ids"]
 
-            prompt_lengths = [len(_) for _ in prompt_tokens]
-            tokenized_dataset[target_dataset] = (
-                target_data,
-                prompt_tokens,
-                prompt_lengths,
-            )
+            tokenized_dataset[target_dataset] = TokenizedDataset(target_data, prompt_token_ids)
         return tokenized_dataset
 
-    def inspect_dataset(self, tokenized_dataset: Dict[str, Tuple[dict, list, list]]) -> Dict[str, DatasetProfile]:
+    def _warn_if_tools_dropped(self, target_dataset: str, target_data: Dict[str, Any], prompt_token_ids: list[int]):
+        # Chat templates without tool support silently drop `tools`
+        sample = target_data["samples"][0]
+        tools = sample.get("tools") or target_data.get("tools") or []
+        prompt = self.tokenizer.decode(prompt_token_ids)
+        if not any(tool["function"]["name"] in prompt for tool in tools):
+            logger.warning(f"{target_dataset}: no tool name appears in the prompt; the chat template may ignore tools.")
+
+    def inspect_dataset(self, tokenized_dataset: Dict[str, TokenizedDataset]) -> Dict[str, DatasetProfile]:
         num_prompt = 0
         total_num_prompt = 0
         total_max_input_len = 0
@@ -145,12 +185,10 @@ class GeneratorBase(Generic[InferenceConfigT]):
         total_max_seq_len = 0
         total_sum_seq_len = 0
         dataset_profiles: Dict[str, DatasetProfile] = dict()
-        for target_dataset, (
-            target_data,
-            prompt_tokens,
-            prompt_lengths,
-        ) in tokenized_dataset.items():
-            num_prompt = len(prompt_tokens)
+        for target_dataset, data in tokenized_dataset.items():
+            target_data = data.target_data
+            prompt_lengths = data.prompt_lengths
+            num_prompt = len(prompt_lengths)
             total_num_prompt += num_prompt
             max_input_len = max(prompt_lengths)
             if total_max_input_len < max_input_len:
@@ -158,7 +196,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
             sum_input_len = sum(prompt_lengths)
             total_sum_input_len += sum_input_len
             max_output_len = target_data["output_length"]
-            sum_seq_len = sum_input_len + max_output_len * len(prompt_tokens)
+            sum_seq_len = sum_input_len + max_output_len * num_prompt
             total_sum_seq_len += sum_seq_len
             if total_max_output_len < max_output_len:
                 total_max_output_len = max_output_len
@@ -220,23 +258,14 @@ class GeneratorBase(Generic[InferenceConfigT]):
             "(infer)": None,
         }
 
-        for target_dataset, (
-            target_data,
-            prompt_tokens,
-            prompt_lengths,
-        ) in tokenized_dataset.items():
+        for target_dataset, data in tokenized_dataset.items():
+            target_data = data.target_data
             max_input_len = dataset_profiles[target_dataset].max_input_len
-            max_output_len = target_data["output_length"] + target_data["config"].get("output_length_delta", 0)
+            max_output_len = target_data["output_length"] + target_data["config"]["output_length_delta"]
             if self.is_master_process:
                 logger.info(f"generating {target_dataset} ...")
             start_generate = datetime.now()
-            results = self.generate(
-                max_input_len,
-                max_output_len,
-                target_data,
-                prompt_tokens,
-                prompt_lengths,
-            )
+            results = self.generate(max_input_len, max_output_len, data)
             time_profile[target_dataset] = (datetime.now() - start_generate).total_seconds()
             if self.is_master_process:
                 result_path = output_dir / f"{target_data['target_dataset']}.eval-generated.json"
