@@ -30,7 +30,13 @@ class ToolCallAdapter:
         self, sampling_params: vllm.sampling_params.SamplingParams, tools: list[dict[str, Any]]
     ) -> None:
         request = self.parser.adjust_request(_request(tools))
-        sampling_params.skip_special_tokens = request.skip_special_tokens
+        # Only tighten the settings, so that those requested by the reasoning parser are kept
+        if not request.skip_special_tokens:
+            sampling_params.skip_special_tokens = False
+        if request.stop_token_ids:
+            sampling_params.stop_token_ids = sorted(
+                set(sampling_params.stop_token_ids or []) | set(request.stop_token_ids)
+            )
 
     def __call__(
         self, parsed: ParsedOutput, output_token_ids: list[int], tools: list[dict[str, Any]] | None

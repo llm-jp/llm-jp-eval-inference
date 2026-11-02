@@ -17,10 +17,11 @@ import vllm
 import vllm.sampling_params
 
 from output_parsing import OutputParser, parse_output
-from reasoning_adapters import ReasoningAdapter, find_adapter_class
+from reasoning_adapters import DefaultReasoningAdapter, ReasoningAdapter, find_adapter_class
 from schemas import InferenceConfig
 from tool_call_adapters import ToolCallAdapter
 from transformers import PreTrainedTokenizerBase
+from vllm.reasoning import ReasoningParserManager
 from vllm.tokenizers.hf import get_cached_tokenizer
 
 from llm_jp_eval.cli import setup_cli
@@ -106,7 +107,13 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         engine_kwargs = self.cfg.model.model_dump()
         reasoning_parser = _parser_name(self.cfg.model.reasoning_parser)
         if reasoning_parser is not None:
-            self.reasoning_adapter = find_adapter_class(reasoning_parser)(reasoning_parser, self.tokenizer)
+            if self.cfg.model.reasoning_parser_plugin:
+                # As with vllm serve, a plugin parser takes precedence over the built-in one of the same name
+                ReasoningParserManager.import_reasoning_parser(self.cfg.model.reasoning_parser_plugin)
+                adapter_class: type[ReasoningAdapter] = DefaultReasoningAdapter
+            else:
+                adapter_class = find_adapter_class(reasoning_parser)
+            self.reasoning_adapter = adapter_class(reasoning_parser, self.tokenizer)
             engine_kwargs["reasoning_parser"] = self.reasoning_adapter.engine_parser_name
             # add context length for reasoning content
             if self.cfg.reasoning_content_length is not None and engine_kwargs["max_model_len"] is not None:

@@ -17,6 +17,7 @@ class ModelConfig(BaseModel):
     max_model_len: int | None = 4096
     enable_prefix_caching: bool = True
     reasoning_parser: str | None = None
+    reasoning_parser_plugin: str | None = None
 
 
 class TokenizerConfig(BaseModel):

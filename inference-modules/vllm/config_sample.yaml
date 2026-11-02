@@ -11,6 +11,7 @@ tokenize_kwargs:
 model:
   model: llm-jp/llm-jp-3-3.7b-instruct
   # reasoning_parser: qwen3
+  # reasoning_parser_plugin: null
 
 # apply_chat_template: true
 # Required for datasets with tools, e.g. JMultiWOZ-TC (same names as the vLLM server options)

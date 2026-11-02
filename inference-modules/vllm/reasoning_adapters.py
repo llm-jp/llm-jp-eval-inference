@@ -61,6 +61,11 @@ class ReasoningAdapter(ABC):
 class DefaultReasoningAdapter(ReasoningAdapter):
     """Delegate parsing to a vLLM ``ReasoningParser.extract_reasoning(text)``."""
 
+    def adjust_sampling_params(self, sampling_params: vllm.sampling_params.SamplingParams) -> None:
+        # Parsers that read special-token markers request them through adjust_request
+        if not self.parser.adjust_request(ChatCompletionRequest(messages=[])).skip_special_tokens:
+            sampling_params.skip_special_tokens = False
+
     def parse_output(self, output_token_ids: list[int], output_text: str) -> tuple[str | None, str]:
         reasoning, content = self.parser.extract_reasoning(output_text, request=ChatCompletionRequest(messages=[]))
         # On cut-off, surface partial reasoning as final so it is not lost.
