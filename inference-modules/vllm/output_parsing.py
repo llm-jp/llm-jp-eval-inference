@@ -1,10 +1,10 @@
 """Post-processing of generated text into the fields written to the results.
 
-Kept free of vLLM imports so that the order of the steps can be tested without a GPU.
+Kept free of vLLM imports so that it can be tested without a GPU.
 """
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -24,30 +24,28 @@ class ParsedOutput:
         return fields
 
 
-class OutputParser(Protocol):
-    def __call__(
-        self, parsed: ParsedOutput, output_token_ids: list[int], tools: list[dict[str, Any]] | None
-    ) -> ParsedOutput: ...
-
-
-def parse_output(
-    output_text: str,
-    output_token_ids: list[int],
-    tools: list[dict[str, Any]] | None,
-    parsers: list[OutputParser],
+def to_parsed_output(
+    reasoning: str | None,
+    content: str | None,
+    tool_calls: list[dict[str, Any]] | None,
+    with_tools: bool,
 ) -> ParsedOutput:
-    """Apply the parsers in order, each refining the result of the previous one.
+    """Convert the result of vLLM's parser into the output written to the results.
 
     Args:
-        output_text: Generated text.
-        output_token_ids: Generated token IDs.
-        tools: Tools given to the sample, or None.
-        parsers: Steps such as reasoning extraction followed by tool call extraction.
+        reasoning: Extracted reasoning, or None.
+        content: Final answer, or None when the parser found none.
+        tool_calls: Extracted tool calls, or None.
+        with_tools: Whether the sample has tools.
 
     Returns:
         The parsed output.
     """
-    parsed = ParsedOutput(content=output_text)
-    for parser in parsers:
-        parsed = parser(parsed, output_token_ids, tools)
-    return parsed
+    # On cut-off, surface partial reasoning as the answer so that it is not lost
+    if content is None and not tool_calls:
+        reasoning, content = None, reasoning
+    return ParsedOutput(
+        content=content.lstrip() if content else "",
+        reasoning_content=reasoning.lstrip() if reasoning else None,
+        tool_calls=(tool_calls or []) if with_tools else None,
+    )

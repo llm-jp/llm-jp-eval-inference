@@ -6,11 +6,16 @@ readme = "README.md"
 requires-python = ">=3.11, <3.13"
 dependencies = [
     "llm-jp-eval-inference",
-    "torch>=2.10.0",
-    "vllm>=0.19.1",
-    # Gemma 4 系 tokenizer_config.json が `extra_special_tokens` を list で持つのに、
-    # transformers 4.x は dict 前提で AttributeError になるため 5.6+ を要求。
-    "transformers>=5.6.0",
+    "vllm==0.30.0",
+    # vLLM が要求する torch 系を CUDA 12.9 版で揃えるため直接指定する（uv の sources は直接依存にしか効かない）。
+    "torch==2.13.0",
+    "torchaudio==2.11.0",
+    "torchvision==0.28.0",
+    "torchcodec==0.16.0",
+    # LLM-jp-4 の reasoning / tool parser を vLLM プラグインとして提供する。Python 3.12+ のみ。
+    "llm-jp-vllm>=0.1.1; python_version >= '3.12'",
+    # vLLM 0.30 が 5.10.4+ を要求する（override-dependencies でも同じ下限にする）。
+    "transformers>=5.10.4",
 ]
 
 [tool.uv]
@@ -29,9 +34,21 @@ override-dependencies = [
     "langchain-huggingface>=0.1.0",
     "pydantic-settings>=2.10.1",
     # unbabel-comet は transformers<5 / huggingface-hub<1 を要求するが、推論モジュールでは未使用。
-    "transformers>=5.6.0",
-    "huggingface-hub>=1.5.0",
+    # 下限は vLLM 0.30 / transformers の要求に合わせる（override は依存側の下限も置き換えるため）。
+    "transformers>=5.10.4",
+    "huggingface-hub>=1.31.0",
 ]
 
 [tool.uv.sources]
 llm-jp-eval-inference = { path = "../../", editable = true }
+# PyPI の vLLM 0.30 / torch 2.13 は CUDA 13 向けでドライバ 580+ が必要なため、ドライバ 535+ で動く CUDA 12.9 版を使う。
+vllm = { url = "https://github.com/vllm-project/vllm/releases/download/v0.30.0/vllm-0.30.0+cu129-cp38-abi3-manylinux_2_28_x86_64.whl" }
+torch = { index = "pytorch-cu129" }
+torchvision = { index = "pytorch-cu129" }
+torchaudio = { index = "pytorch-cu129" }
+torchcodec = { index = "pytorch-cu129" }
+
+[[tool.uv.index]]
+name = "pytorch-cu129"
+url = "https://download.pytorch.org/whl/cu129"
+explicit = true
