@@ -30,7 +30,10 @@ class ModelConfig(BaseModel):
 
 
 class TokenizerConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     pretrained_model_name_or_path: str
+    revision: str | None = None
     trust_remote_code: bool = False
     use_fast: bool = True
     padding_side: Literal["left", "right"] = "left"
