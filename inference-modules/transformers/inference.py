@@ -14,7 +14,7 @@ from transformers import PreTrainedTokenizerBase, pipeline
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
-from llm_jp_eval_inference.generator import GeneratorBase, TokenizedDataset
+from llm_jp_eval_inference.generator import GeneratorBase
 
 logger = logging.getLogger(__name__)
 transformers.logging.set_verbosity_info()
@@ -69,7 +69,14 @@ class TransformersGenerator(GeneratorBase[InferenceConfig]):
             self.model = transformers.AutoModelForCausalLM.from_pretrained(**self.cfg.model.to_from_pretrained_kwargs())
         self.model.eval()
 
-    def generate(self, max_input_len: int, max_output_len: int, data: TokenizedDataset) -> Dict[str, Any]:
+    def generate(
+        self,
+        max_input_len: int,
+        max_output_len: int,
+        target_data: Dict[str, Any],
+        prompt_tokens: list,
+        prompt_lengths: list,
+    ) -> Dict[str, Any]:
         pipe = pipeline(
             "text-generation",
             model=self.model,
@@ -81,12 +88,10 @@ class TransformersGenerator(GeneratorBase[InferenceConfig]):
             generation_config=self.cfg.generation_config,
             **self.cfg.pipeline_kwargs,
         )
-        # The pipeline takes text, so the tokenized prompts (with the chat template applied when configured) are
-        # decoded and re-tokenized without adding special tokens again
-        prompts = [self.tokenizer.decode(token_ids) for token_ids in data.prompt_token_ids]
+        samples = [sample["prompt"] for sample in target_data["samples"]]
         with torch.inference_mode():
-            results = copy.deepcopy(data.target_data)
-            generated_texts = pipe(prompts, add_special_tokens=False)
+            results = copy.deepcopy(target_data)
+            generated_texts = pipe(samples)  # TODO use token_ids instead of text
             for sample, generated in zip(results["samples"], generated_texts, strict=False):
                 sample["generated"] = generated[0]["generated_text"]
         return results

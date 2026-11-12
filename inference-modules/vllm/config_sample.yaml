@@ -1,4 +1,4 @@
-run_name: null  # Used as the output directory name and the wandb run name with the highest priority.
+run_name: null  # This value will be applied to both offline_inference.run_name and wandb.run_name with the highest priority.
 
 wandb:
   launch: false

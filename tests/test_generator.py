@@ -51,7 +51,7 @@ def _chat_dataset() -> dict:
 def test_tokenize_text_dataset_matches_previous_tokens():
     generator = _Generator(apply_chat_template=False)
     tokenized = generator.tokenize_dataset({"text": _text_dataset()})["text"]
-    assert tokenized.prompt_token_ids == [generator.tokenizer("### 入力:\nこんにちは\n### 応答:\n")["input_ids"]]
+    assert tokenized[1] == [generator.tokenizer("### 入力:\nこんにちは\n### 応答:\n")["input_ids"]]
 
     generator = _Generator(apply_chat_template=True)
     tokenized = generator.tokenize_dataset({"text": _text_dataset("system")})["text"]
@@ -61,7 +61,7 @@ def test_tokenize_text_dataset_matches_previous_tokens():
         return_dict=False,
         add_special_tokens=True,
     )
-    assert tokenized.prompt_token_ids == [previous]
+    assert tokenized[1] == [previous]
 
 
 def test_tokenize_chat_dataset_with_tools():
@@ -69,7 +69,7 @@ def test_tokenize_chat_dataset_with_tools():
 
     tokenized = generator.tokenize_dataset({"chat": _chat_dataset()})["chat"]
 
-    prompt = generator.tokenizer.decode(tokenized.prompt_token_ids[0])
+    prompt = generator.tokenizer.decode(tokenized[1][0])
     assert json.dumps(TOOLS[0], ensure_ascii=False) in prompt
     # Arguments are rendered as an object, not as an escaped JSON string
     assert '{"name": "Search_hotel", "arguments": {"city": "札幌"}}' in prompt

@@ -15,7 +15,7 @@ from utils import load_tokenizer, read_model_name, supports_inflight_batching
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
-from llm_jp_eval_inference.generator import GeneratorBase, TokenizedDataset
+from llm_jp_eval_inference.generator import GeneratorBase
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +115,14 @@ class TRTLLMGenerator(GeneratorBase[InferenceConfig]):
             logger.info(f"runner_kwargs: {args}")
         self.runner = ModelRunnerCpp.from_dir(**args)
 
-    def generate(self, max_input_len: int, max_output_len: int, data: TokenizedDataset) -> Dict[str, Any]:
-        target_data = data.target_data
-        prompt_tokens = data.prompt_token_ids
-        prompt_lengths = data.prompt_lengths
+    def generate(
+        self,
+        max_input_len: int,
+        max_output_len: int,
+        target_data: Dict[str, Any],
+        prompt_tokens: list,
+        prompt_lengths: list,
+    ) -> Dict[str, Any]:
         self.runner.max_input_len = max_input_len
         if max_output_len > self.runner.max_seq_len - self.runner.max_input_len:
             max_new_tokens = self.runner.max_seq_len - self.runner.max_input_len

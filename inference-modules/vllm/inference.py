@@ -26,7 +26,7 @@ from vllm.tool_parsers import ToolParserManager
 
 from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
-from llm_jp_eval_inference.generator import GeneratorBase, TokenizedDataset
+from llm_jp_eval_inference.generator import GeneratorBase
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +103,6 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         return _parser_name(self.cfg.tool_call_parser) is not None
 
     def load_model(self, dataset_profile: Dict[str, DatasetProfile]):
-        # Engine arguments are built locally so that _config.json keeps the settings as the user wrote them
-        engine_kwargs = self.cfg.model.model_dump()
         tool_call_parser = _parser_name(self.cfg.tool_call_parser)
         # As with vllm serve, a plugin parser takes precedence over the built-in one of the same name
         if self.reasoning_parser is not None and self.cfg.model.reasoning_parser_plugin:
@@ -112,14 +110,14 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
         if tool_call_parser is not None and self.cfg.tool_parser_plugin:
             ToolParserManager.import_tool_parser(self.cfg.tool_parser_plugin)
         if self.reasoning_parser is not None:
-            engine_kwargs["reasoning_parser"] = self.reasoning_parser
+            self.cfg.model.reasoning_parser = self.reasoning_parser
             # add context length for reasoning content
-            if self.cfg.reasoning_content_length is not None and engine_kwargs["max_model_len"] is not None:
-                engine_kwargs["max_model_len"] += self.cfg.reasoning_content_length
+            if self.cfg.reasoning_content_length is not None:
+                self.cfg.model.max_model_len += self.cfg.reasoning_content_length
             else:
                 # set model context length
-                engine_kwargs["max_model_len"] = None
-        self.model: vllm.LLM = vllm.LLM(**engine_kwargs)
+                self.cfg.model.max_model_len = None
+        self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
         # Inject the external tokenizer into vLLM's renderer (replaces deprecated set_tokenizer)
         self.model.llm_engine.renderer.tokenizer = get_cached_tokenizer(self.tokenizer)
         if self.reasoning_parser is not None or tool_call_parser is not None:
@@ -132,8 +130,14 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
                 chat_template_kwargs=self.cfg.tokenize_kwargs,
             )
 
-    def generate(self, max_input_len: int, max_output_len: int, data: TokenizedDataset) -> Dict[str, Any]:
-        target_data = data.target_data
+    def generate(
+        self,
+        max_input_len: int,
+        max_output_len: int,
+        target_data: Dict[str, Any],
+        prompt_tokens: list,
+        prompt_lengths: list,
+    ) -> Dict[str, Any]:
         sampling_params = vllm.sampling_params.SamplingParams(**self.cfg.generation_config.model_dump())
         if self.parser_adapter is not None:
             self.parser_adapter.adjust_sampling_params(sampling_params, target_data.get("tools"))
@@ -152,9 +156,9 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
 
         with torch.inference_mode():
             results = copy.deepcopy(target_data)
+            # prompt_tokens: List[List[int]]
             outputs = self.model.generate(
-                sampling_params=sampling_params,
-                prompts=[{"prompt_token_ids": tokens} for tokens in data.prompt_token_ids],
+                sampling_params=sampling_params, prompts=[{"prompt_token_ids": tokens} for tokens in prompt_tokens]
             )
             for sample, output in zip(results["samples"], outputs, strict=True):
                 tools = sample.get("tools") or target_data.get("tools")

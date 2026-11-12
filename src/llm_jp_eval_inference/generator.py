@@ -6,7 +6,6 @@ import re
 import subprocess
 import sys
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Generic, List, Tuple, TypeVar
 
@@ -21,17 +20,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 InferenceConfigT = TypeVar("InferenceConfigT", bound=BaseInferenceConfig)
-
-
-@dataclass(frozen=True)
-class TokenizedDataset:
-    # Prompt dump as read from the file; results are written as a copy of it so that every field passes through
-    target_data: dict[str, Any]
-    prompt_token_ids: list[list[int]]
-
-    @property
-    def prompt_lengths(self) -> list[int]:
-        return [len(token_ids) for token_ids in self.prompt_token_ids]
 
 
 def _messages_for_chat_template(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -87,7 +75,14 @@ class GeneratorBase(Generic[InferenceConfigT]):
         """Whether generated tool calls can be parsed into `tool_calls` of the results."""
         return False
 
-    def generate(self, max_input_len: int, max_output_len: int, data: TokenizedDataset) -> Dict[str, Any]:
+    def generate(
+        self,
+        max_input_len: int,
+        max_output_len: int,
+        target_data: Dict[str, Any],
+        prompt_tokens: list,
+        prompt_lengths: list,
+    ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def load_dataset(self) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
@@ -126,7 +121,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
                         )
         return dataset, dump_prompts_config
 
-    def tokenize_dataset(self, dataset: Dict[str, Dict[str, Any]]) -> Dict[str, TokenizedDataset]:
+    def tokenize_dataset(self, dataset: Dict[str, Dict[str, Any]]) -> Dict[str, Tuple[Dict[str, Any], list, list]]:
         tokenized_dataset = {}
         for target_dataset, target_data in dataset.items():
             samples = target_data["samples"]
@@ -145,7 +140,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
                 )
 
             if use_chat_template:
-                prompt_token_ids = [
+                prompt_tokens = [
                     self.tokenizer.apply_chat_template(
                         _messages_for_chat_template(sample["messages"]),
                         tools=sample.get("tools") or target_data.get("tools"),
@@ -156,16 +151,21 @@ class GeneratorBase(Generic[InferenceConfigT]):
                     for sample in samples
                 ]
                 if has_tools:
-                    self._warn_if_tools_dropped(target_dataset, target_data, prompt_token_ids[0])
+                    self._warn_if_tools_dropped(target_dataset, target_data, prompt_tokens[0])
             else:
                 if self.cfg.apply_chat_template:
                     logger.warning(
                         "apply_chat_template is set, but tokenizer.chat_template is None. Falling back to default tokenization."
                     )
                 prompts = [sample["prompt"] for sample in samples]
-                prompt_token_ids = self.tokenizer(prompts, **self.cfg.tokenize_kwargs)["input_ids"]
+                prompt_tokens = self.tokenizer(prompts, **self.cfg.tokenize_kwargs)["input_ids"]
 
-            tokenized_dataset[target_dataset] = TokenizedDataset(target_data, prompt_token_ids)
+            prompt_lengths = [len(_) for _ in prompt_tokens]
+            tokenized_dataset[target_dataset] = (
+                target_data,
+                prompt_tokens,
+                prompt_lengths,
+            )
         return tokenized_dataset
 
     def _warn_if_tools_dropped(self, target_dataset: str, target_data: Dict[str, Any], prompt_token_ids: list[int]):
@@ -176,7 +176,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
         if not any(tool["function"]["name"] in prompt for tool in tools):
             logger.warning(f"{target_dataset}: no tool name appears in the prompt; the chat template may ignore tools.")
 
-    def inspect_dataset(self, tokenized_dataset: Dict[str, TokenizedDataset]) -> Dict[str, DatasetProfile]:
+    def inspect_dataset(self, tokenized_dataset: Dict[str, Tuple[dict, list, list]]) -> Dict[str, DatasetProfile]:
         num_prompt = 0
         total_num_prompt = 0
         total_max_input_len = 0
@@ -185,10 +185,12 @@ class GeneratorBase(Generic[InferenceConfigT]):
         total_max_seq_len = 0
         total_sum_seq_len = 0
         dataset_profiles: Dict[str, DatasetProfile] = dict()
-        for target_dataset, data in tokenized_dataset.items():
-            target_data = data.target_data
-            prompt_lengths = data.prompt_lengths
-            num_prompt = len(prompt_lengths)
+        for target_dataset, (
+            target_data,
+            prompt_tokens,
+            prompt_lengths,
+        ) in tokenized_dataset.items():
+            num_prompt = len(prompt_tokens)
             total_num_prompt += num_prompt
             max_input_len = max(prompt_lengths)
             if total_max_input_len < max_input_len:
@@ -196,7 +198,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
             sum_input_len = sum(prompt_lengths)
             total_sum_input_len += sum_input_len
             max_output_len = target_data["output_length"]
-            sum_seq_len = sum_input_len + max_output_len * num_prompt
+            sum_seq_len = sum_input_len + max_output_len * len(prompt_tokens)
             total_sum_seq_len += sum_seq_len
             if total_max_output_len < max_output_len:
                 total_max_output_len = max_output_len
@@ -258,14 +260,23 @@ class GeneratorBase(Generic[InferenceConfigT]):
             "(infer)": None,
         }
 
-        for target_dataset, data in tokenized_dataset.items():
-            target_data = data.target_data
+        for target_dataset, (
+            target_data,
+            prompt_tokens,
+            prompt_lengths,
+        ) in tokenized_dataset.items():
             max_input_len = dataset_profiles[target_dataset].max_input_len
             max_output_len = target_data["output_length"] + target_data["config"]["output_length_delta"]
             if self.is_master_process:
                 logger.info(f"generating {target_dataset} ...")
             start_generate = datetime.now()
-            results = self.generate(max_input_len, max_output_len, data)
+            results = self.generate(
+                max_input_len,
+                max_output_len,
+                target_data,
+                prompt_tokens,
+                prompt_lengths,
+            )
             time_profile[target_dataset] = (datetime.now() - start_generate).total_seconds()
             if self.is_master_process:
                 result_path = output_dir / f"{target_data['target_dataset']}.eval-generated.json"
