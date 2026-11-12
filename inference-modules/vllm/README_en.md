@@ -34,7 +34,7 @@ please edit and use `config_sample.yaml`.
 
 The parser settings correspond to `--reasoning-parser` / `--reasoning-parser-plugin` / `--tool-call-parser` / `--tool-parser-plugin` of the vLLM server, and reasoning and tool calls are extracted with the same parser as the server.
 `tool_call_parser` and `tool_parser_plugin` are not engine arguments, so write them at the top level instead of under `model`.
-For LLM-jp-4, give the `llmjp4` parser of [llm-jp-vllm](https://github.com/llm-jp/llm-jp-vllm), which is a dependency, as a plugin (`reasoning_parser: llmjp4` and `reasoning_parser_plugin: llm_jp_vllm.llmjp4`; for tool calling, the same values for `tool_call_parser` / `tool_parser_plugin`).
+The `llmjp4` parser for LLM-jp-4 is registered at startup from [llm-jp-vllm](https://github.com/llm-jp/llm-jp-vllm), which is a dependency, so it can be selected by name alone without a plugin (`reasoning_parser: llmjp4`; for tool calling, `tool_call_parser: llmjp4`).
 
 ```yaml
 apply_chat_template: true

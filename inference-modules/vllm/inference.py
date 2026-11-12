@@ -28,6 +28,10 @@ from llm_jp_eval.cli import setup_cli
 from llm_jp_eval.schemas import DatasetProfile
 from llm_jp_eval_inference.generator import GeneratorBase
 
+# llm-jp-vllm has no vLLM plugin entry point, so importing it is what makes "llmjp4" selectable by parser name alone
+if sys.version_info >= (3, 12):
+    import llm_jp_vllm.llmjp4  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 # Set transformers verbosity based on command

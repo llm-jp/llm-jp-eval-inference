@@ -34,7 +34,7 @@ vLLM と torch は CUDA 12.9 版を使うため、NVIDIA ドライバ 535 以降
 
 parser の設定は vLLM サーバの `--reasoning-parser` / `--reasoning-parser-plugin` / `--tool-call-parser` / `--tool-parser-plugin` に対応し、思考部分と tool call はサーバと同じ parser で取り出します。
 `tool_call_parser` と `tool_parser_plugin` は vLLM のエンジン引数ではないため、`model` ではなく最上位に書きます。
-LLM-jp-4 では、依存に含まれる [llm-jp-vllm](https://github.com/llm-jp/llm-jp-vllm) の `llmjp4` parser を plugin として指定します（`reasoning_parser: llmjp4`、`reasoning_parser_plugin: llm_jp_vllm.llmjp4`。tool calling では `tool_call_parser` / `tool_parser_plugin` にも同じ値を指定）。
+LLM-jp-4 の `llmjp4` parser は、依存に含まれる [llm-jp-vllm](https://github.com/llm-jp/llm-jp-vllm) を起動時に読み込んで登録するため、plugin を指定せずに名前だけで使えます（`reasoning_parser: llmjp4`。tool calling では `tool_call_parser: llmjp4`）。
 
 ```yaml
 apply_chat_template: true
