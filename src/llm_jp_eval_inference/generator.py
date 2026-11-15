@@ -136,7 +136,7 @@ class GeneratorBase(Generic[InferenceConfigT]):
             if has_tools and not self.supports_tool_calls():
                 raise ValueError(
                     f"{target_dataset} has tools, but {type(self).__name__} cannot parse tool calls with the current "
-                    "settings. Use the vllm module with tool_call_parser."
+                    "settings. Use the vllm module with model.tool_call_parser."
                 )
 
             if use_chat_template:

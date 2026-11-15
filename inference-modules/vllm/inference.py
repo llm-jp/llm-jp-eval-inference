@@ -104,15 +104,15 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
                 logger.info("setting pad_token_id=eos_token_id")
 
     def supports_tool_calls(self) -> bool:
-        return _parser_name(self.cfg.tool_call_parser) is not None
+        return _parser_name(self.cfg.model.tool_call_parser) is not None
 
     def load_model(self, dataset_profile: Dict[str, DatasetProfile]):
-        tool_call_parser = _parser_name(self.cfg.tool_call_parser)
+        tool_call_parser = _parser_name(self.cfg.model.tool_call_parser)
         # As with vllm serve, a plugin parser takes precedence over the built-in one of the same name
         if self.reasoning_parser is not None and self.cfg.model.reasoning_parser_plugin:
             ReasoningParserManager.import_reasoning_parser(self.cfg.model.reasoning_parser_plugin)
-        if tool_call_parser is not None and self.cfg.tool_parser_plugin:
-            ToolParserManager.import_tool_parser(self.cfg.tool_parser_plugin)
+        if tool_call_parser is not None and self.cfg.model.tool_parser_plugin:
+            ToolParserManager.import_tool_parser(self.cfg.model.tool_parser_plugin)
         if self.reasoning_parser is not None:
             self.cfg.model.reasoning_parser = self.reasoning_parser
             # add context length for reasoning content
@@ -121,7 +121,7 @@ class VLLMGenerator(GeneratorBase[InferenceConfig]):
             else:
                 # set model context length
                 self.cfg.model.max_model_len = None
-        self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump())
+        self.model: vllm.LLM = vllm.LLM(**self.cfg.model.model_dump(exclude={"tool_call_parser", "tool_parser_plugin"}))
         # Inject the external tokenizer into vLLM's renderer (replaces deprecated set_tokenizer)
         self.model.llm_engine.renderer.tokenizer = get_cached_tokenizer(self.tokenizer)
         if self.reasoning_parser is not None or tool_call_parser is not None:

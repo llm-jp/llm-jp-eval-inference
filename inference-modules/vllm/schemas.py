@@ -18,6 +18,9 @@ class ModelConfig(BaseModel):
     enable_prefix_caching: bool = True
     reasoning_parser: str | None = None
     reasoning_parser_plugin: str | None = None
+    # Set next to reasoning_parser as on the vLLM server, but not engine arguments, so not passed to vllm.LLM
+    tool_call_parser: str | None = Field(None, description="vLLM tool parser name, e.g. hermes")
+    tool_parser_plugin: str | None = Field(None, description="path to a Python file that registers a tool parser")
 
 
 class TokenizerConfig(BaseModel):
@@ -57,7 +60,3 @@ class InferenceConfig(BaseInferenceConfig):
     tokenizer: TokenizerConfig
     generation_config: VLLMSamplingParams = Field(default_factory=VLLMSamplingParams)
     reasoning_content_length: int | None = None
-    # Same names as the vLLM server options --tool-call-parser / --tool-parser-plugin. They are not engine arguments,
-    # so they live here instead of under `model`, which is passed to vllm.LLM as is.
-    tool_call_parser: str | None = Field(None, description="vLLM tool parser name, e.g. hermes")
-    tool_parser_plugin: str | None = Field(None, description="path to a Python file that registers a tool parser")

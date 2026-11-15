@@ -29,19 +29,28 @@ please edit and use `config_sample.yaml`.
 | `model.reasoning_parser` | vLLM reasoning parser name (e.g. `qwen3`). The reasoning part is saved separately as `reasoning_content` |
 | `model.reasoning_parser_plugin` | Module name or path to a Python file that registers a custom reasoning parser (e.g. `llm_jp_vllm.llmjp4`) |
 | `reasoning_content_length` | Tokens added to the output length and context length for reasoning |
-| `tool_call_parser` | vLLM tool parser name (e.g. `hermes`, `llama3_json`, `mistral`). Required for datasets with tools; `tool_calls` are read from the generated text |
-| `tool_parser_plugin` | Module name or path to a Python file that registers a custom tool parser. Refer to its registered name with `tool_call_parser` |
+| `model.tool_call_parser` | vLLM tool parser name (e.g. `hermes`, `qwen3_coder`). Required for datasets with tools; `tool_calls` are read from the generated text |
+| `model.tool_parser_plugin` | Module name or path to a Python file that registers a custom tool parser. Refer to its registered name with `tool_call_parser` |
 
 The parser settings correspond to `--reasoning-parser` / `--reasoning-parser-plugin` / `--tool-call-parser` / `--tool-parser-plugin` of the vLLM server, and reasoning and tool calls are extracted with the same parser as the server.
-`tool_call_parser` and `tool_parser_plugin` are not engine arguments, so write them at the top level instead of under `model`.
-The `llmjp4` parser for LLM-jp-4 is registered at startup from [llm-jp-vllm](https://github.com/llm-jp/llm-jp-vllm), which is a dependency, so it can be selected by name alone without a plugin (`reasoning_parser: llmjp4`; for tool calling, `tool_call_parser: llmjp4`).
+The reasoning parser and the tool parser are set separately, and both must match the output format of the model. The tool call format can change between generations of the same model family, so the reasoning parser does not determine the tool parser.
+A tool parser that does not match the format raises no error; tool calls are just not read and the samples are scored as such, so use the parser given in the model card.
+
+| Model | `reasoning_parser` | `tool_call_parser` | Source |
+| --- | --- | --- | --- |
+| Qwen3 | `qwen3` | `hermes` | [Qwen documentation](https://qwen.readthedocs.io/en/latest/framework/function_call.html#vllm) |
+| Qwen3.5 | `qwen3` | `qwen3_coder` | [Model card](https://huggingface.co/Qwen/Qwen3.5-2B) |
+| Gemma 4 | `gemma4` | `gemma4` | [vLLM recipe](https://github.com/vllm-project/recipes/blob/main/Google/Gemma4.md) |
+| LLM-jp-4 | `llmjp4` | `llmjp4` | [llm-jp-vllm](https://github.com/llm-jp/llm-jp-vllm) |
+
+The `llmjp4` parser for LLM-jp-4 is registered at startup from llm-jp-vllm, which is a dependency, so it can be selected by name alone without a plugin.
 
 ```yaml
 apply_chat_template: true
 model:
-  model: Qwen/Qwen3-8B
+  model: Qwen/Qwen3.5-2B
   reasoning_parser: qwen3
-tool_call_parser: hermes
+  tool_call_parser: qwen3_coder
 ```
 
 ## running inference
