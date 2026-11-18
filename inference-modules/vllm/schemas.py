@@ -17,6 +17,10 @@ class ModelConfig(BaseModel):
     max_model_len: int | None = 4096
     enable_prefix_caching: bool = True
     reasoning_parser: str | None = None
+    reasoning_parser_plugin: str | None = None
+    # Set next to reasoning_parser as on the vLLM server, but not engine arguments, so not passed to vllm.LLM
+    tool_call_parser: str | None = Field(None, description="vLLM tool parser name, e.g. hermes")
+    tool_parser_plugin: str | None = Field(None, description="path to a Python file that registers a tool parser")
 
 
 class TokenizerConfig(BaseModel):
